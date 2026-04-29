@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { WorkoutContext } from "@/components/editor/types";
 import { SettingsModal } from "./SettingsModal";
+import { SearchModal } from "./SearchModal";
 import { Button } from "./ui/Button";
 
 function formatDateEntry(date: Date, format: string): string {
@@ -34,9 +35,10 @@ function insertEntry(editor: Editor, dateStr: string) {
 interface Props {
   editor: Editor | null;
   settings: WorkoutContext;
+  onSearchOpen: () => void;
 }
 
-export function Toolbar({ editor, settings }: Props) {
+export function Toolbar({ editor, settings, onSearchOpen }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -53,14 +55,24 @@ export function Toolbar({ editor, settings }: Props) {
     e.target.value = "";
   }
 
+  function handleProgram() {
+    const input = dateInputRef.current;
+    if (!input) return;
+    try {
+      (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+    } catch {
+      input.click();
+    }
+  }
+
   return (
     <>
-      <div className="flex items-center gap-0.5">
+      <div className="toolbar-actions">
         <Button variant="ghost" onClick={handleNew}>
           New
         </Button>
 
-        <Button variant="ghost" onClick={() => dateInputRef.current?.click()}>
+        <Button variant="ghost" onClick={handleProgram}>
           Program
         </Button>
         <input
@@ -71,8 +83,25 @@ export function Toolbar({ editor, settings }: Props) {
           tabIndex={-1}
         />
 
+        <Button variant="icon" onClick={onSearchOpen} aria-label="Search exercises">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="6.5" cy="6.5" r="5" />
+            <line x1="10.5" y1="10.5" x2="14" y2="14" />
+          </svg>
+        </Button>
+
         <div
-          className="mx-1.5 h-3.5 w-px"
+          className="toolbar-divider"
           style={{ background: "var(--color-border-strong)" }}
           aria-hidden
         />

@@ -15,6 +15,7 @@ import {
 import { useAutocomplete } from "./editor/autocomplete/use-autocomplete";
 import { SuggestionMenu } from "./editor/autocomplete/SuggestionMenu";
 import { Toolbar } from "./Toolbar";
+import { SearchModal } from "./SearchModal";
 
 const CONTENT_KEY = "workout:content-v1";
 const SAVE_DEBOUNCE_MS = 300;
@@ -84,26 +85,31 @@ export function Editor() {
   }, [editor, settings]);
 
   const { menu, accept, cycle } = useAutocomplete(editor, settings);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <>
       <header
-        className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 backdrop-blur"
+        className="editor-header"
         style={{
           background: "var(--color-header-bg)",
           borderBottom: "1px solid var(--color-border)",
         }}
       >
-        <h1
-          className="text-2xl font-semibold tracking-tight"
-          style={{ color: "var(--color-text)" }}
-        >
-          Workout
-        </h1>
-        <Toolbar editor={editor} settings={settings} />
+        <h1>Workout</h1>
+        <Toolbar
+          editor={editor}
+          settings={settings}
+          onSearchOpen={() => setSearchOpen(true)}
+        />
       </header>
       <EditorContent editor={editor} />
       <SuggestionMenu menu={menu} onAccept={accept} onCycle={cycle} />
+      <SearchModal
+        open={searchOpen}
+        editor={editor}
+        onClose={() => setSearchOpen(false)}
+      />
     </>
   );
 }

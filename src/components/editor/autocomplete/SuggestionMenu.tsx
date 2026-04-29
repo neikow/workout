@@ -22,6 +22,12 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
     ? active.label.slice(menu.lineText.length)
     : " → " + active.label;
 
+  const maxLen = menu.suggestions.reduce((max, s) => {
+    const lines = s.preview ?? [];
+    return lines.length > 0 ? Math.max(max, ...lines.map((l) => l.length)) : max;
+  }, 0);
+  const minCardWidth = maxLen > 0 ? `${maxLen + 2}ch` : undefined;
+
   const handleAccept = (e: React.MouseEvent) => {
     e.preventDefault();
     onAccept(menu.activeIndex);
@@ -29,7 +35,6 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
 
   return (
     <>
-      {/* Inline name suffix at cursor */}
       {nameSuffix && (
         <span
           aria-hidden
@@ -55,7 +60,6 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
         </span>
       )}
 
-      {/* Floating card */}
       {showCard && (
         <div
           style={{
@@ -65,12 +69,13 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
             zIndex: 50,
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
-            borderRadius: "0.75rem",
+            borderRadius: "0.5rem",
             boxShadow: "0 4px 24px oklch(0% 0 0 / 0.18)",
             overflow: "hidden",
+            minWidth: minCardWidth,
+            maxWidth: "calc(100vw - 2rem)",
           }}
         >
-          {/* Set preview lines */}
           {sets.length > 0 && (
             <div
               style={{
@@ -90,7 +95,6 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
             </div>
           )}
 
-          {/* Nav row */}
           {hasMultiple && (
             <div
               style={{
@@ -102,19 +106,7 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
             >
               <button
                 aria-label="Previous suggestion"
-                className="btn"
-                style={{
-                  height: "2.75rem",
-                  width: "3rem",
-                  color: "var(--color-text-muted)",
-                  borderRadius: 0,
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = "var(--color-text)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = "var(--color-text-muted)")
-                }
+                className="btn btn-nav"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -150,19 +142,7 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
               </span>
               <button
                 aria-label="Next suggestion"
-                className="btn"
-                style={{
-                  height: "2.75rem",
-                  width: "3rem",
-                  color: "var(--color-text-muted)",
-                  borderRadius: 0,
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = "var(--color-text)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = "var(--color-text-muted)")
-                }
+                className="btn btn-nav"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

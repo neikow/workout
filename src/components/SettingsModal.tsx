@@ -69,31 +69,31 @@ function ThemePreview({ theme }: { theme: ThemeOption }) {
   const isAuto = theme.id === "system";
   return (
     <div
-      className="mb-2 h-12 w-full overflow-hidden rounded-md"
+      className="theme-preview-box"
       style={{ background: theme.preview.bg }}
     >
       {!isAuto && (
-        <div className="flex h-full flex-col justify-center gap-1 px-2.5">
+        <div className="theme-preview-lines">
           <div
-            className="h-1.5 w-3/4 rounded-full"
-            style={{ background: theme.preview.date, opacity: 0.95 }}
+            className="preview-line"
+            style={{ background: theme.preview.date, opacity: 0.95, width: "75%" }}
           />
           <div
-            className="h-1.5 w-full rounded-full"
-            style={{ background: theme.preview.exercise, opacity: 0.9 }}
+            className="preview-line"
+            style={{ background: theme.preview.exercise, opacity: 0.9, width: "100%" }}
           />
           <div
-            className="h-1.5 w-2/3 rounded-full"
-            style={{ background: theme.preview.set, opacity: 0.85 }}
+            className="preview-line"
+            style={{ background: theme.preview.set, opacity: 0.85, width: "66.667%" }}
           />
           <div
-            className="h-1.5 w-1/2 rounded-full"
-            style={{ background: theme.preview.muted, opacity: 0.6 }}
+            className="preview-line"
+            style={{ background: theme.preview.muted, opacity: 0.6, width: "50%" }}
           />
         </div>
       )}
       {isAuto && (
-        <div className="flex h-full items-center justify-center">
+        <div className="theme-preview-auto">
           <svg
             width="18"
             height="18"
@@ -169,15 +169,14 @@ export function SettingsModal({ open, settings, onClose }: Props) {
       onClick={handleBackdropClick}
       className="settings-dialog"
     >
-      {/* Header */}
       <div
-        className="flex items-center justify-between px-5 py-4"
+        className="settings-header"
         style={{
           borderBottom: "1px solid var(--color-border)",
           color: "var(--color-text)",
         }}
       >
-        <span className="text-sm font-semibold tracking-tight">Settings</span>
+        <span className="settings-title">Settings</span>
         <Button variant="icon" onClick={onClose} aria-label="Close">
           <svg
             width="16"
@@ -196,23 +195,22 @@ export function SettingsModal({ open, settings, onClose }: Props) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-6 px-5 py-5">
-        {/* Theme picker */}
-        <div className="flex flex-col gap-3">
+      <div className="settings-body">
+        <div className="settings-section">
           <span
-            className="text-xs font-semibold uppercase tracking-widest"
+            className="settings-section-label"
             style={{ color: "var(--color-text-muted)" }}
           >
             Theme
           </span>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="theme-grid">
             {THEMES.map((t) => {
               const selected = selectedTheme === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => setSelectedTheme(t.id)}
-                  className="btn flex flex-col items-center rounded-lg p-1.5"
+                  className="btn theme-btn"
                   style={{
                     background: selected
                       ? "var(--color-ghost-hover)"
@@ -225,7 +223,7 @@ export function SettingsModal({ open, settings, onClose }: Props) {
                 >
                   <ThemePreview theme={t} />
                   <span
-                    className="text-xs font-medium"
+                    className="theme-btn-label"
                     style={{
                       color: selected
                         ? "var(--color-accent)"
@@ -240,21 +238,19 @@ export function SettingsModal({ open, settings, onClose }: Props) {
           </div>
         </div>
 
-        {/* Divider */}
         <div style={{ height: "1px", background: "var(--color-border)" }} />
 
-        {/* Editor fields */}
-        <div className="flex flex-col gap-4">
+        <div className="settings-editor-section">
           <span
-            className="text-xs font-semibold uppercase tracking-widest"
+            className="settings-section-label"
             style={{ color: "var(--color-text-muted)" }}
           >
             Editor
           </span>
 
-          <label className="flex flex-col gap-1.5">
+          <label className="settings-field">
             <span
-              className="text-xs font-medium"
+              className="settings-field-label"
               style={{ color: "var(--color-text-secondary)" }}
             >
               Warmup marker
@@ -265,9 +261,9 @@ export function SettingsModal({ open, settings, onClose }: Props) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5">
+          <label className="settings-field">
             <span
-              className="text-xs font-medium"
+              className="settings-field-label"
               style={{ color: "var(--color-text-secondary)" }}
             >
               Date format
@@ -277,7 +273,7 @@ export function SettingsModal({ open, settings, onClose }: Props) {
               onChange={(e) => setDateFormat(e.target.value)}
             />
             <span
-              className="text-xs"
+              className="settings-hint"
               style={{ color: "var(--color-text-muted)" }}
             >
               Tokens: DD, MM, YYYY. Wrap optional parts in [brackets].
@@ -286,9 +282,8 @@ export function SettingsModal({ open, settings, onClose }: Props) {
         </div>
       </div>
 
-      {/* Footer */}
       <div
-        className="px-5 pb-5 pt-2"
+        className="settings-footer"
         style={{ borderTop: "1px solid var(--color-border)" }}
       >
         <Button variant="accent" onClick={handleSave}>
