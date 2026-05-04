@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Collaboration from "@tiptap/extension-collaboration";
 import { useSettings } from "@/lib/settings";
 import { useAuth } from "@/lib/auth-provider";
-import { fetchWorkoutDocument, putWorkoutDocument } from "@/lib/auth-client";
-import { loadLocalContent, saveLocalContent } from "@/lib/storage";
+import { type SyncBundle } from "@/lib/sync";
+import { useSyncStore } from "@/lib/sync-store";
+import { fetchWorkoutDocument } from "@/lib/auth-client";
+import { clearLocalContent, loadLocalContent } from "@/lib/storage";
 import { defaultRules } from "./editor/default-rules";
 import { DayCard } from "./editor/day-card";
-import { WorkoutParagraph } from "./editor/workout-paragraph";
 import {
   CONTEXT_META,
   WorkoutParser,
@@ -21,24 +22,15 @@ import { SuggestionMenu } from "./editor/autocomplete/SuggestionMenu";
 import { Toolbar } from "./Toolbar";
 import { SearchModal } from "./SearchModal";
 
-const SAVE_DEBOUNCE_MS = 600;
-
-type Source = "guest" | "server";
-
 export function Editor() {
   const auth = useAuth();
-  const source: Source | "loading" =
-    auth.status === "loading"
-      ? "loading"
-      : auth.status === "authenticated"
-        ? "server"
-        : "guest";
 
-  if (source === "loading") {
+  if (auth.status === "loading") {
     return <EditorShell loading />;
   }
 
-  return <EditorBody key={source} source={source} />;
+  const userId = auth.status === "authenticated" ? auth.user.id : null;
+  return <EditorHost userId={userId} isAuthenticated={userId !== null} />;
 }
 
 function EditorShell({
@@ -76,51 +68,49 @@ function EditorShell({
   );
 }
 
-function EditorBody({ source }: { source: Source }) {
-  const settings = useSettings();
-  const qc = useQueryClient();
+function EditorHost({
+  userId,
+  isAuthenticated,
+}: {
+  userId: string | null;
+  isAuthenticated: boolean;
+}) {
+  const { bundle, idbSynced, currentUserId, transition } = useSyncStore();
 
-  const serverDoc = useQuery({
-    queryKey: ["workouts", "doc"],
-    enabled: source === "server",
-    queryFn: fetchWorkoutDocument,
-  });
-
-  const [guestContent, setGuestContent] = useState<string | null>(null);
   useEffect(() => {
-    if (source !== "guest") return;
-    let cancelled = false;
-    loadLocalContent().then((c) => {
-      if (cancelled) return;
-      setGuestContent(c ?? "");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [source]);
+    if (currentUserId !== userId) {
+      transition(userId);
+    }
+  }, [userId, currentUserId, transition]);
 
-  const initialContent =
-    source === "guest"
-      ? guestContent
-      : serverDoc.data
-        ? (serverDoc.data.content ?? "")
-        : null;
+  if (!bundle || !idbSynced || currentUserId !== userId) {
+    return <EditorShell loading />;
+  }
+  return <EditorBody bundle={bundle} isAuthenticated={isAuthenticated} />;
+}
 
-  const ready = initialContent !== null;
+function EditorBody({
+  bundle,
+  isAuthenticated,
+}: {
+  bundle: SyncBundle;
+  isAuthenticated: boolean;
+}) {
+  const settings = useSettings();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const editor = useEditor(
     {
       immediatelyRender: false,
       extensions: [
-        StarterKit.configure({ paragraph: false }),
-        WorkoutParagraph,
-        DayCard,
+        StarterKit.configure({ undoRedo: false }),
         WorkoutParser.configure({
           rules: defaultRules,
           initialContext: settings,
         }),
+        DayCard,
+        Collaboration.configure({ document: bundle.ydoc }),
       ],
-      content: initialContent ?? "",
       editorProps: {
         attributes: {
           class: "workout-editor",
@@ -129,57 +119,55 @@ function EditorBody({ source }: { source: Source }) {
         },
       },
     },
-    [ready],
+    [bundle],
   );
-
-  const putMutation = useMutation({
-    mutationFn: putWorkoutDocument,
-    onSuccess: (data) => {
-      qc.setQueryData(["workouts", "doc"], (prev: unknown) => ({
-        content: (prev as { content?: string } | undefined)?.content ?? "",
-        updatedAt: data.updatedAt,
-      }));
-    },
-  });
-
-  const saveRef = useRef<(html: string) => void>(() => {});
-  saveRef.current = (html: string) => {
-    if (source === "guest") {
-      void saveLocalContent(html);
-    } else {
-      putMutation.mutate(html);
-    }
-  };
 
   useEffect(() => {
     if (!editor) return;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    const onUpdate = () => {
-      if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        saveRef.current(editor.getHTML());
-      }, SAVE_DEBOUNCE_MS);
+    const fragment = bundle.ydoc.getXmlFragment("default");
+    let cancelled = false;
+
+    const seed = async () => {
+      if (fragment.length > 0) return;
+
+      // 1. Legacy local IDB blob (pre-yjs storage on this device).
+      const legacyLocal = await loadLocalContent();
+      if (cancelled) return;
+      if (legacyLocal && legacyLocal.trim() && fragment.length === 0) {
+        editor.commands.setContent(legacyLocal, { emitUpdate: true });
+        void clearLocalContent();
+        return;
+      }
+
+      // 2. Legacy server blob — only relevant when authenticated and after
+      //    the WS provider has finished its initial sync (so we know the
+      //    server-side Y doc is genuinely empty before we seed).
+      if (!isAuthenticated) return;
+      await bundle.whenWsSynced();
+      if (cancelled || fragment.length > 0) return;
+
+      const cloud = await fetchWorkoutDocument().catch(() => null);
+      if (cancelled || !cloud || !cloud.content.trim()) return;
+      if (fragment.length > 0) return;
+      editor.commands.setContent(cloud.content, { emitUpdate: true });
     };
-    editor.on("update", onUpdate);
+
+    void seed();
     return () => {
-      if (timeout) clearTimeout(timeout);
-      editor.off("update", onUpdate);
+      cancelled = true;
     };
-  }, [editor]);
+  }, [editor, bundle, isAuthenticated]);
 
   useEffect(() => {
     if (!editor) return;
     const current = parserPluginKey.getState(editor.state);
-    if (current === settings) return;
+    if (current?.ctx === settings) return;
     editor.view.dispatch(editor.state.tr.setMeta(CONTEXT_META, settings));
   }, [editor, settings]);
 
   const { menu, accept, cycle } = useAutocomplete(editor, settings);
-  const [searchOpen, setSearchOpen] = useState(false);
 
-  if (!ready) {
-    return <EditorShell loading />;
-  }
+  if (!editor) return <EditorShell loading />;
 
   return (
     <>

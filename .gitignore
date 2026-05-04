@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+packages/*/node_modules
+services/*/node_modules
+services/*/yarn.lock
 /.pnp
 .pnp.*
 .yarn/*

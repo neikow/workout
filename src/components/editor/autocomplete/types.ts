@@ -8,6 +8,7 @@ export interface SuggestionContext {
   lineKind: LineKind | null;
   lineText: string;
   workout: WorkoutContext;
+  getKind: (pos: number) => LineKind | null;
 }
 
 export interface Suggestion {

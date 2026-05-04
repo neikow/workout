@@ -8,12 +8,15 @@ export interface ExerciseEntry {
   contentStart: number;
 }
 
+export type GetKind = (pos: number) => LineKind | null;
+
 export function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 export function buildExerciseIndex(
   doc: PMNode,
+  getKind: GetKind,
   excludeContentStart?: number,
 ): Map<string, ExerciseEntry> {
   const index = new Map<string, ExerciseEntry>();
@@ -21,7 +24,7 @@ export function buildExerciseIndex(
 
   doc.descendants((node, pos) => {
     if (node.type.name !== "paragraph") return;
-    const kind = (node.attrs.kind ?? null) as LineKind | null;
+    const kind = getKind(pos);
     const text = node.textContent;
     const contentStart = pos + 1;
 

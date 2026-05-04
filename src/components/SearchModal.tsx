@@ -6,6 +6,7 @@ import {
   buildExerciseIndex,
   normalizeName,
 } from "./editor/autocomplete/doc-index";
+import { getKindGetter } from "./editor/workout-parser";
 import { Button } from "./ui/Button";
 
 interface Props {
@@ -38,7 +39,10 @@ export function SearchModal({ open, editor, onClose }: Props) {
 
   const exercises = useMemo(() => {
     if (!editor || !open) return [];
-    const index = buildExerciseIndex(editor.state.doc);
+    const index = buildExerciseIndex(
+      editor.state.doc,
+      getKindGetter(editor.state),
+    );
     return Array.from(index.values()).sort((a, b) =>
       a.displayName.localeCompare(b.displayName),
     );

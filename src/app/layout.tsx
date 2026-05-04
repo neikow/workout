@@ -8,6 +8,7 @@ const THEME_SCRIPT = `try{var s=localStorage.getItem('workout:settings-v1');if(s
 export const metadata: Metadata = {
   title: "Workout",
   description: "Mobile-first gym workout tracker",
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {

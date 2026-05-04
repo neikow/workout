@@ -1,5 +1,11 @@
 "use client";
 
+// Pre-CRDT local storage adapter. Kept as read-only for one-time bootstrap of
+// devices that still have a workout doc cached from the old single-blob
+// IndexedDB store. Once a user's content has been migrated into the Yjs IDB
+// (handled by the editor on first run), the legacy entry is cleared and this
+// module becomes a no-op for that device.
+
 import { type IDBPDatabase, openDB } from "idb";
 
 const DB_NAME = "workout";
@@ -53,15 +59,6 @@ export async function loadLocalContent(): Promise<string | null> {
   }
 }
 
-export async function saveLocalContent(content: string): Promise<void> {
-  try {
-    const db = await getDb();
-    await db.put(STORE, content, CONTENT_KEY);
-  } catch {
-    // ignore storage failures (private mode, quota, etc.)
-  }
-}
-
 export async function clearLocalContent(): Promise<void> {
   try {
     const db = await getDb();
@@ -69,9 +66,4 @@ export async function clearLocalContent(): Promise<void> {
   } catch {
     // ignore
   }
-}
-
-export async function hasLocalContent(): Promise<boolean> {
-  const c = await loadLocalContent();
-  return !!c && c.trim().length > 0;
 }

@@ -8,7 +8,7 @@ export const docExerciseProvider: AutocompleteProvider = {
     const normalizedQuery = normalizeName(query);
     if (!normalizedQuery) return [];
 
-    const index = buildExerciseIndex(ctx.doc, ctx.linePos);
+    const index = buildExerciseIndex(ctx.doc, ctx.getKind, ctx.linePos);
     const results: Suggestion[] = [];
 
     for (const entry of index.values()) {

@@ -24,12 +24,12 @@ describe("normalizeName", () => {
 
 describe("buildExerciseIndex", () => {
   it("builds entries with following sets", () => {
-    const doc = buildDoc([
+    const { doc, getKind } = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "working-set", text: "100kg x 5" },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    const idx = buildExerciseIndex(doc);
+    const idx = buildExerciseIndex(doc, getKind);
     const entry = idx.get("squat");
     expect(entry).toBeDefined();
     expect(entry?.displayName).toBe("Squat");
@@ -37,96 +37,96 @@ describe("buildExerciseIndex", () => {
   });
 
   it("includes warmup sets", () => {
-    const doc = buildDoc([
+    const built = buildDoc([
       { kind: "exercise", text: "Bench" },
       { kind: "warmup-set", text: "E 40kg x 5" },
       { kind: "working-set", text: "80kg x 5" },
     ]);
-    expect(idxSets(doc, "bench")).toEqual(["E 40kg x 5", "80kg x 5"]);
+    expect(idxSets(built, "bench")).toEqual(["E 40kg x 5", "80kg x 5"]);
   });
 
   it("date breaks the current exercise context", () => {
-    const doc = buildDoc([
+    const built = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "date", text: "03/05/2026" },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    expect(idxSets(doc, "squat")).toEqual([]);
+    expect(idxSets(built, "squat")).toEqual([]);
   });
 
   it("comment breaks the current exercise context", () => {
-    const doc = buildDoc([
+    const built = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "comment", text: "'felt heavy" },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    expect(idxSets(doc, "squat")).toEqual([]);
+    expect(idxSets(built, "squat")).toEqual([]);
   });
 
   it("null kind breaks exercise context", () => {
-    const doc = buildDoc([
+    const built = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: null, text: "stray" },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    expect(idxSets(doc, "squat")).toEqual([]);
+    expect(idxSets(built, "squat")).toEqual([]);
   });
 
   it("first occurrence wins on duplicate exercise names", () => {
-    const doc = buildDoc([
+    const built = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "working-set", text: "100kg x 5" },
       { kind: "date", text: "03/05/2026" },
       { kind: "exercise", text: "Squat" },
       { kind: "working-set", text: "120kg x 3" },
     ]);
-    expect(idxSets(doc, "squat")).toEqual(["100kg x 5"]);
+    expect(idxSets(built, "squat")).toEqual(["100kg x 5"]);
   });
 
   it("normalizes exercise key but preserves displayName", () => {
-    const doc = buildDoc([
+    const { doc, getKind } = buildDoc([
       { kind: "exercise", text: "  Front  Squat  " },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    const entry = buildExerciseIndex(doc).get("front squat");
+    const entry = buildExerciseIndex(doc, getKind).get("front squat");
     expect(entry?.displayName).toBe("Front  Squat");
   });
 
   it("skips empty exercise names", () => {
-    const doc = buildDoc([
+    const { doc, getKind } = buildDoc([
       { kind: "exercise", text: "   " },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    expect(buildExerciseIndex(doc).size).toBe(0);
+    expect(buildExerciseIndex(doc, getKind).size).toBe(0);
   });
 
   it("excludes the exercise at given contentStart", () => {
-    const doc = buildDoc([
+    const { doc, getKind } = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "working-set", text: "100kg x 5" },
     ]);
-    const fullIdx = buildExerciseIndex(doc);
+    const fullIdx = buildExerciseIndex(doc, getKind);
     const start = fullIdx.get("squat")!.contentStart;
 
-    const filtered = buildExerciseIndex(doc, start);
+    const filtered = buildExerciseIndex(doc, getKind, start);
     expect(filtered.has("squat")).toBe(false);
   });
 
   it("indexes multiple exercises", () => {
-    const doc = buildDoc([
+    const { doc, getKind } = buildDoc([
       { kind: "exercise", text: "Squat" },
       { kind: "working-set", text: "100kg x 5" },
       { kind: "date", text: "03/05/2026" },
       { kind: "exercise", text: "Bench" },
       { kind: "working-set", text: "80kg x 5" },
     ]);
-    const idx = buildExerciseIndex(doc);
+    const idx = buildExerciseIndex(doc, getKind);
     expect(idx.size).toBe(2);
     expect(idx.get("squat")?.lastSets).toEqual(["100kg x 5"]);
     expect(idx.get("bench")?.lastSets).toEqual(["80kg x 5"]);
   });
 });
 
-function idxSets(doc: ReturnType<typeof buildDoc>, key: string): string[] {
-  return buildExerciseIndex(doc).get(key)?.lastSets ?? [];
+function idxSets(built: ReturnType<typeof buildDoc>, key: string): string[] {
+  return buildExerciseIndex(built.doc, built.getKind).get(key)?.lastSets ?? [];
 }

@@ -1,7 +1,10 @@
 import { Extension } from "@tiptap/core";
+import type { EditorState } from "prosemirror-state";
 import { Plugin, PluginKey } from "prosemirror-state";
+import type { Node as PMNode } from "prosemirror-model";
+import { Decoration, DecorationSet } from "prosemirror-view";
 import { classifyLine, defaultRules, sortRules } from "./default-rules";
-import type { WorkoutContext, WorkoutRule } from "./types";
+import type { LineKind, WorkoutContext, WorkoutRule } from "./types";
 
 export interface WorkoutParserOptions {
   rules: WorkoutRule[];
@@ -10,7 +13,49 @@ export interface WorkoutParserOptions {
 
 export const CONTEXT_META = "workoutContext";
 
-export const parserPluginKey = new PluginKey<WorkoutContext>("workoutParser");
+export interface KindState {
+  ctx: WorkoutContext;
+  kindByPos: Map<number, LineKind | null>;
+  decorations: DecorationSet;
+}
+
+export const parserPluginKey = new PluginKey<KindState>("workoutParser");
+
+function buildState(
+  doc: PMNode,
+  ctx: WorkoutContext,
+  sortedRules: WorkoutRule[],
+): KindState {
+  const kindByPos = new Map<number, LineKind | null>();
+  const decos: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name !== "paragraph") return;
+    const kind = classifyLine(node.textContent, sortedRules, ctx);
+    kindByPos.set(pos, kind);
+    if (kind) {
+      decos.push(
+        Decoration.node(pos, pos + node.nodeSize, { "data-kind": kind }),
+      );
+    }
+  });
+  return {
+    ctx,
+    kindByPos,
+    decorations: DecorationSet.create(doc, decos),
+  };
+}
+
+export function getKindAt(state: EditorState, pos: number): LineKind | null {
+  const s = parserPluginKey.getState(state);
+  return s ? (s.kindByPos.get(pos) ?? null) : null;
+}
+
+export function getKindGetter(
+  state: EditorState,
+): (pos: number) => LineKind | null {
+  const s = parserPluginKey.getState(state);
+  return (pos) => (s ? (s.kindByPos.get(pos) ?? null) : null);
+}
 
 export const WorkoutParser = Extension.create<WorkoutParserOptions>({
   name: "workoutParser",
@@ -28,38 +73,25 @@ export const WorkoutParser = Extension.create<WorkoutParserOptions>({
 
   addProseMirrorPlugins() {
     const sorted = sortRules(this.options.rules);
-    const initial = this.options.initialContext;
 
     return [
-      new Plugin<WorkoutContext>({
+      new Plugin<KindState>({
         key: parserPluginKey,
         state: {
-          init: () => initial,
-          apply(tr, prev) {
-            return (
-              (tr.getMeta(CONTEXT_META) as WorkoutContext | undefined) ?? prev
-            );
+          init: (_, instance) =>
+            buildState(instance.doc, this.options.initialContext, sorted),
+          apply(tr, prev, _oldState, newState) {
+            const nextCtx =
+              (tr.getMeta(CONTEXT_META) as WorkoutContext | undefined) ??
+              prev.ctx;
+            if (!tr.docChanged && nextCtx === prev.ctx) return prev;
+            return buildState(newState.doc, nextCtx, sorted);
           },
         },
-        appendTransaction(_txs, _oldState, newState) {
-          const ctx = parserPluginKey.getState(newState);
-          if (!ctx) return null;
-          const tr = newState.tr;
-          let changed = false;
-
-          newState.doc.descendants((node, pos) => {
-            if (node.type.name !== "paragraph") return;
-            const expected = classifyLine(node.textContent, sorted, ctx);
-            const current = node.attrs.kind ?? null;
-            if (expected === current) return;
-            tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
-              kind: expected,
-            });
-            changed = true;
-          });
-
-          return changed ? tr : null;
+        props: {
+          decorations(state) {
+            return parserPluginKey.getState(state)?.decorations;
+          },
         },
       }),
     ];

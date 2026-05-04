@@ -1,7 +1,9 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
+import type { EditorState } from "prosemirror-state";
 import type { Node } from "prosemirror-model";
+import { parserPluginKey } from "./workout-parser";
 
 const key = new PluginKey<DecorationSet>("dayCard");
 
@@ -34,7 +36,9 @@ function flushGroup(
   });
 }
 
-function buildDecorations(doc: Node): DecorationSet {
+function buildDecorations(state: EditorState): DecorationSet {
+  const doc = state.doc;
+  const kindMap = parserPluginKey.getState(state)?.kindByPos;
   const out: Decoration[] = [];
   let group: Array<{ pos: number; node: Node }> = [];
 
@@ -46,7 +50,8 @@ function buildDecorations(doc: Node): DecorationSet {
     }
     if (node.type.name !== "paragraph") return;
 
-    if (node.attrs.kind === "date") {
+    const kind = kindMap?.get(offset) ?? null;
+    if (kind === "date") {
       flushGroup(group, out);
       group = [{ pos: offset, node }];
     } else if (group.length > 0) {
@@ -66,11 +71,15 @@ export const DayCard = Extension.create({
       new Plugin({
         key,
         state: {
-          init(_, { doc }) {
-            return buildDecorations(doc);
+          init(_, state) {
+            return buildDecorations(state);
           },
-          apply(tr, old) {
-            return tr.docChanged ? buildDecorations(tr.doc) : old;
+          apply(tr, old, _oldState, newState) {
+            const parserChanged =
+              parserPluginKey.getState(_oldState) !==
+              parserPluginKey.getState(newState);
+            if (!tr.docChanged && !parserChanged) return old;
+            return buildDecorations(newState);
           },
         },
         props: {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { EditorView } from "@tiptap/pm/view";
 import type { WorkoutContext } from "../types";
+import { getKindGetter } from "../workout-parser";
 import { defaultProviders } from "./providers";
 import type { Suggestion, SuggestionContext } from "./types";
 
@@ -27,7 +28,10 @@ function computeMenu(
 
   const parent = $from.parent;
   if (parent.type.name !== "paragraph") return null;
-  if (parent.attrs.kind !== "exercise") return null;
+
+  const getKind = getKindGetter(editor.state);
+  const parentNodePos = $from.before($from.depth);
+  if (getKind(parentNodePos) !== "exercise") return null;
 
   const lineText = parent.textContent;
   if (!lineText.trim()) return null;
@@ -37,11 +41,12 @@ function computeMenu(
   const doc = editor.state.doc;
   if (indexInDoc + 1 < doc.childCount) {
     const next = doc.child(indexInDoc + 1);
-    if (
-      next.type.name === "paragraph" &&
-      (next.attrs.kind === "warmup-set" || next.attrs.kind === "working-set")
-    ) {
-      return null;
+    if (next.type.name === "paragraph") {
+      const nextNodePos = parentNodePos + parent.nodeSize;
+      const nextKind = getKind(nextNodePos);
+      if (nextKind === "warmup-set" || nextKind === "working-set") {
+        return null;
+      }
     }
   }
 
@@ -52,6 +57,7 @@ function computeMenu(
     lineKind: "exercise",
     lineText,
     workout: settings,
+    getKind,
   };
 
   const suggestions: Suggestion[] = [];

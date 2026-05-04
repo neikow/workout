@@ -4,14 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchSessions,
-  fetchWorkoutDocument,
-  importLocalDocument,
   logout as apiLogout,
   requestOtp,
   revokeSession as apiRevokeSession,
   verifyOtp,
 } from "@/lib/auth-client";
-import { hasLocalContent, loadLocalContent } from "@/lib/storage";
 import { useAuth, useInvalidateAuth } from "@/lib/auth-provider";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -23,8 +20,6 @@ interface Props {
 
 export function AccountModal({ open, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [postLoginPrompt, setPostLoginPrompt] =
-    useState<PostLoginPrompt | null>(null);
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
@@ -34,11 +29,6 @@ export function AccountModal({ open, onClose }: Props) {
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) onClose();
-  }
-
-  function dismissPrompt() {
-    setPostLoginPrompt(null);
-    onClose();
   }
 
   const auth = useAuth();
@@ -77,27 +67,14 @@ export function AccountModal({ open, onClose }: Props) {
       </div>
 
       <div className="settings-body">
-        {postLoginPrompt === "save" && (
-          <FirstLoginSavePrompt onDone={dismissPrompt} />
+        {auth.status === "loading" && (
+          <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
+            Loading…
+          </p>
         )}
-        {postLoginPrompt === "merge" && <MergePrompt onDone={dismissPrompt} />}
-        {!postLoginPrompt && (
-          <>
-            {auth.status === "loading" && (
-              <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-                Loading…
-              </p>
-            )}
-            {auth.status === "guest" && (
-              <LoginPanel
-                onClose={onClose}
-                onPrompt={setPostLoginPrompt}
-              />
-            )}
-            {auth.status === "authenticated" && (
-              <AuthenticatedPanel email={auth.user.email} onClose={onClose} />
-            )}
-          </>
+        {auth.status === "guest" && <LoginPanel onClose={onClose} />}
+        {auth.status === "authenticated" && (
+          <AuthenticatedPanel email={auth.user.email} onClose={onClose} />
         )}
       </div>
     </dialog>
@@ -106,21 +83,12 @@ export function AccountModal({ open, onClose }: Props) {
 
 type LoginStep = "email" | "code";
 
-type PostLoginPrompt = "save" | "merge";
-
-function LoginPanel({
-  onClose,
-  onPrompt,
-}: {
-  onClose: () => void;
-  onPrompt: (p: PostLoginPrompt | null) => void;
-}) {
+function LoginPanel({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const invalidateAuth = useInvalidateAuth();
-  const qc = useQueryClient();
 
   const requestMutation = useMutation({
     mutationFn: requestOtp,
@@ -135,17 +103,8 @@ function LoginPanel({
     mutationFn: ({ email, code }: { email: string; code: string }) =>
       verifyOtp(email, code),
     onSuccess: async () => {
-      const local = await hasLocalContent();
-      let next: PostLoginPrompt | null = null;
-      if (local) {
-        const cloud = await fetchWorkoutDocument().catch(() => null);
-        const cloudEmpty = !cloud || !cloud.content.trim();
-        next = cloudEmpty ? "save" : "merge";
-      }
-      onPrompt(next);
       await invalidateAuth();
-      await qc.invalidateQueries({ queryKey: ["workouts"] });
-      if (!next) onClose();
+      onClose();
     },
     onError: (e: Error) => setError(humanizeError(e.message)),
   });
@@ -253,118 +212,6 @@ function LoginPanel({
         </button>
       )}
     </form>
-  );
-}
-
-function FirstLoginSavePrompt({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState<"save" | "discard" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const qc = useQueryClient();
-
-  async function save() {
-    setError(null);
-    setBusy("save");
-    try {
-      const local = (await loadLocalContent()) ?? "";
-      await importLocalDocument(local, "replace");
-      await qc.invalidateQueries({ queryKey: ["workouts"] });
-      onDone();
-    } catch (e) {
-      setError(humanizeError((e as Error).message));
-      setBusy(null);
-    }
-  }
-
-  async function discard() {
-    setBusy("discard");
-    await qc.invalidateQueries({ queryKey: ["workouts"] });
-    onDone();
-  }
-
-  return (
-    <div className="settings-editor-section">
-      <p style={{ margin: 0, fontSize: "0.875rem" }}>
-        We found workouts saved on this device. Save them to your cloud account?
-      </p>
-      {error && (
-        <p style={{ margin: 0, color: "tomato", fontSize: "0.8125rem" }}>
-          {error}
-        </p>
-      )}
-      <Button variant="accent" disabled={busy !== null} onClick={save}>
-        {busy === "save" ? "Saving…" : "Save to cloud"}
-      </Button>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        disabled={busy !== null}
-        onClick={discard}
-      >
-        Not now
-      </button>
-    </div>
-  );
-}
-
-function MergePrompt({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState<"merge" | "replace" | "discard" | null>(
-    null,
-  );
-  const [error, setError] = useState<string | null>(null);
-  const qc = useQueryClient();
-
-  async function run(strategy: "merge" | "replace" | "discard") {
-    setError(null);
-    setBusy(strategy);
-    try {
-      if (strategy === "discard") {
-        // Leave server doc alone; clear local on next reload via storage adapter swap.
-      } else {
-        const local = (await loadLocalContent()) ?? "";
-        await importLocalDocument(local, strategy);
-      }
-      await qc.invalidateQueries({ queryKey: ["workouts"] });
-      onDone();
-    } catch (e) {
-      setError(humanizeError((e as Error).message));
-      setBusy(null);
-    }
-  }
-
-  return (
-    <div className="settings-editor-section">
-      <p style={{ margin: 0, fontSize: "0.875rem" }}>
-        We found workouts saved locally. How should we sync them?
-      </p>
-      {error && (
-        <p style={{ margin: 0, color: "tomato", fontSize: "0.8125rem" }}>
-          {error}
-        </p>
-      )}
-      <Button
-        variant="accent"
-        disabled={busy !== null}
-        onClick={() => run("merge")}
-      >
-        {busy === "merge" ? "Merging…" : "Merge with cloud"}
-      </Button>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        disabled={busy !== null}
-        onClick={() => run("replace")}
-      >
-        {busy === "replace" ? "Uploading…" : "Replace cloud copy with local"}
-      </button>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        disabled={busy !== null}
-        onClick={() => run("discard")}
-      >
-        Discard local, use cloud
-      </button>
-    </div>
   );
 }
 

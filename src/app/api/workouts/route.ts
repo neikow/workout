@@ -1,16 +1,16 @@
-import { z } from "zod";
 import { getCurrentSession } from "@/lib/server/session";
-import { getDocument, upsertDocument } from "@/lib/server/workouts";
-import { isSameOrigin, jsonError } from "@/lib/server/http";
+import { getDocument } from "@/lib/server/workouts";
+import { jsonError } from "@/lib/server/http";
+
+// Legacy read endpoint. Pre-CRDT this served as the canonical doc store; the
+// editor now syncs through the y-websocket sidecar instead. Kept alive only
+// so newly-authenticated clients can pull a one-time HTML seed from the
+// `workout_documents` table when their Y doc is empty. Once every active
+// account has a `workout_doc_snapshots` row, this route and the underlying
+// table can be dropped together.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const MAX_CONTENT_BYTES = 1024 * 1024; // 1 MiB
-
-const Body = z.object({
-  content: z.string().max(MAX_CONTENT_BYTES),
-});
 
 export async function GET() {
   const cur = await getCurrentSession({ touch: true });
@@ -20,18 +20,4 @@ export async function GET() {
     content: doc?.content ?? "",
     updatedAt: doc?.updatedAt ?? null,
   });
-}
-
-export async function PUT(req: Request) {
-  if (!(await isSameOrigin())) return jsonError(403, "forbidden");
-  const cur = await getCurrentSession({ touch: true });
-  if (!cur) return jsonError(401, "unauthorized");
-  let parsed: z.infer<typeof Body>;
-  try {
-    parsed = Body.parse(await req.json());
-  } catch {
-    return jsonError(400, "invalid_body");
-  }
-  const doc = await upsertDocument(cur.userId, parsed.content);
-  return Response.json({ updatedAt: doc.updatedAt });
 }

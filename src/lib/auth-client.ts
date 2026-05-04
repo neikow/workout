@@ -87,30 +87,3 @@ export async function fetchWorkoutDocument(): Promise<{
 }> {
   return asJson(await fetch("/api/workouts", { credentials: "same-origin" }));
 }
-
-export async function putWorkoutDocument(
-  content: string,
-): Promise<{ updatedAt: string }> {
-  return asJson(
-    await fetch("/api/workouts", {
-      method: "PUT",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    }),
-  );
-}
-
-export async function importLocalDocument(
-  content: string,
-  strategy: "merge" | "replace",
-): Promise<void> {
-  await asJson(
-    await fetch("/api/workouts/import", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, strategy }),
-    }),
-  );
-}
