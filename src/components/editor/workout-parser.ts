@@ -18,7 +18,11 @@ export const WorkoutParser = Extension.create<WorkoutParserOptions>({
   addOptions() {
     return {
       rules: defaultRules,
-      initialContext: { warmupMarker: "E", dateFormat: "DD/MM[/YYYY]", theme: "system" as const },
+      initialContext: {
+        warmupMarker: "E",
+        dateFormat: "DD/MM[/YYYY]",
+        theme: "system" as const,
+      },
     };
   },
 

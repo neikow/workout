@@ -5,7 +5,9 @@ import type { Editor } from "@tiptap/react";
 import type { WorkoutContext } from "@/components/editor/types";
 import { SettingsModal } from "./SettingsModal";
 import { SearchModal } from "./SearchModal";
+import { AccountModal } from "./AccountModal";
 import { Button } from "./ui/Button";
+import { useAuth } from "@/lib/auth-provider";
 
 function formatDateEntry(date: Date, format: string): string {
   const required = format.replace(/\[.*?\]/g, "");
@@ -25,9 +27,7 @@ function insertEntry(editor: Editor, dateStr: string) {
     firstNode?.type.name === "paragraph" &&
     firstNode.textContent.trim() === dateStr;
 
-  const html = alreadyHasDate
-    ? `<p>${dateStr}</p><hr>`
-    : `<p>${dateStr}</p>`;
+  const html = alreadyHasDate ? `<p>${dateStr}</p><hr>` : `<p>${dateStr}</p>`;
 
   editor.chain().insertContentAt(0, html).focus("start").run();
 }
@@ -41,6 +41,8 @@ interface Props {
 export function Toolbar({ editor, settings, onSearchOpen }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const auth = useAuth();
 
   function handleNew() {
     if (!editor) return;
@@ -83,7 +85,11 @@ export function Toolbar({ editor, settings, onSearchOpen }: Props) {
           tabIndex={-1}
         />
 
-        <Button variant="icon" onClick={onSearchOpen} aria-label="Search exercises">
+        <Button
+          variant="icon"
+          onClick={onSearchOpen}
+          aria-label="Search exercises"
+        >
           <svg
             width="15"
             height="15"
@@ -105,6 +111,36 @@ export function Toolbar({ editor, settings, onSearchOpen }: Props) {
           style={{ background: "var(--color-border-strong)" }}
           aria-hidden
         />
+
+        <Button
+          variant="icon"
+          onClick={() => setAccountOpen(true)}
+          aria-label="Account"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8" />
+            {auth.status === "authenticated" && (
+              <circle
+                cx="19"
+                cy="5"
+                r="2.25"
+                fill="var(--color-accent)"
+                stroke="none"
+              />
+            )}
+          </svg>
+        </Button>
 
         <Button
           variant="icon"
@@ -133,6 +169,7 @@ export function Toolbar({ editor, settings, onSearchOpen }: Props) {
         settings={settings}
         onClose={() => setSettingsOpen(false)}
       />
+      <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </>
   );
 }

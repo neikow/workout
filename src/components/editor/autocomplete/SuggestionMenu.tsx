@@ -24,7 +24,9 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
 
   const maxLen = menu.suggestions.reduce((max, s) => {
     const lines = s.preview ?? [];
-    return lines.length > 0 ? Math.max(max, ...lines.map((l) => l.length)) : max;
+    return lines.length > 0
+      ? Math.max(max, ...lines.map((l) => l.length))
+      : max;
   }, 0);
   const minCardWidth = maxLen > 0 ? `${maxLen + 2}ch` : undefined;
 

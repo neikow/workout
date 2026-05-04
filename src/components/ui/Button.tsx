@@ -8,7 +8,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "ghost", className = "", ...props }, ref) => (
-    <button ref={ref} className={`btn btn-${variant} ${className}`.trim()} {...props} />
+    <button
+      ref={ref}
+      className={`btn btn-${variant} ${className}`.trim()}
+      {...props}
+    />
   ),
 );
 

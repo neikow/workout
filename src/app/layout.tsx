@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { SettingsProvider, ThemeApplier } from "@/lib/settings";
+import { AuthProvider } from "@/lib/auth-provider";
 import "./globals.css";
 
 const THEME_SCRIPT = `try{var s=localStorage.getItem('workout:settings-v1');if(s){var t=JSON.parse(s).theme;if(t&&t!=='system')document.documentElement.setAttribute('data-theme',t)}}catch(e){}`;
@@ -41,10 +42,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
-        <SettingsProvider>
-          <ThemeApplier />
-          {children}
-        </SettingsProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <ThemeApplier />
+            {children}
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

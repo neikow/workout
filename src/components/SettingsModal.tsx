@@ -68,27 +68,40 @@ const THEMES: ThemeOption[] = [
 function ThemePreview({ theme }: { theme: ThemeOption }) {
   const isAuto = theme.id === "system";
   return (
-    <div
-      className="theme-preview-box"
-      style={{ background: theme.preview.bg }}
-    >
+    <div className="theme-preview-box" style={{ background: theme.preview.bg }}>
       {!isAuto && (
         <div className="theme-preview-lines">
           <div
             className="preview-line"
-            style={{ background: theme.preview.date, opacity: 0.95, width: "75%" }}
+            style={{
+              background: theme.preview.date,
+              opacity: 0.95,
+              width: "75%",
+            }}
           />
           <div
             className="preview-line"
-            style={{ background: theme.preview.exercise, opacity: 0.9, width: "100%" }}
+            style={{
+              background: theme.preview.exercise,
+              opacity: 0.9,
+              width: "100%",
+            }}
           />
           <div
             className="preview-line"
-            style={{ background: theme.preview.set, opacity: 0.85, width: "66.667%" }}
+            style={{
+              background: theme.preview.set,
+              opacity: 0.85,
+              width: "66.667%",
+            }}
           />
           <div
             className="preview-line"
-            style={{ background: theme.preview.muted, opacity: 0.6, width: "50%" }}
+            style={{
+              background: theme.preview.muted,
+              opacity: 0.6,
+              width: "50%",
+            }}
           />
         </div>
       )}

@@ -72,11 +72,20 @@ export function SearchModal({ open, editor, onClose }: Props) {
     >
       <div
         className="settings-header"
-        style={{ borderBottom: "1px solid var(--color-border)", color: "var(--color-text)" }}
+        style={{
+          borderBottom: "1px solid var(--color-border)",
+          color: "var(--color-text)",
+        }}
       >
         <span className="settings-title">Search exercises</span>
         <Button variant="icon" onClick={onClose} aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden
+          >
             <path
               d="M3.5 3.5l9 9M12.5 3.5l-9 9"
               stroke="currentColor"
