@@ -2,9 +2,11 @@ FROM node:20-alpine AS base
 WORKDIR /app
 
 COPY package.json yarn.lock ./
+COPY packages/shared/package.json ./packages/shared/
 COPY services/sync/package.json ./services/sync/
 RUN yarn install --frozen-lockfile --production=false
 
+COPY packages/shared/src ./packages/shared/src
 COPY services/sync/tsconfig.json ./services/sync/
 COPY services/sync/src ./services/sync/src
 

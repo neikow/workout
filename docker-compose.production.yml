@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workout
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: workout
+    volumes:
+      - workout-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workout -d workout"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  workout:
+    image: ${WORKOUT_IMAGE:-ghcr.io/neikow/workout:latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://workout:${POSTGRES_PASSWORD}@postgres:5432/workout
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET required}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  sync:
+    image: ${SYNC_IMAGE:-ghcr.io/neikow/workout-sync:latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://workout:${POSTGRES_PASSWORD}@postgres:5432/workout
+      SYNC_TOKEN_SECRET: ${SYNC_TOKEN_SECRET:?SYNC_TOKEN_SECRET required}
+      SYNC_PORT: "1234"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:alpine
+    container_name: workout
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - workout
+      - sync
+    networks:
+      - internal
+
+volumes:
+  workout-db:
+
+networks:
+  internal:
+    driver: bridge
