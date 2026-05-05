@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { WorkoutContext } from "@/components/editor/types";
 import { SettingsModal } from "./SettingsModal";
-import { SearchModal } from "./SearchModal";
 import { AccountModal } from "./AccountModal";
 import { Button } from "./ui/Button";
 import { useAuth } from "@/lib/auth-provider";

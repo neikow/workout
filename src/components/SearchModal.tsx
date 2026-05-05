@@ -19,13 +19,17 @@ export function SearchModal({ open, editor, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) setQuery("");
+  }
 
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
     if (open) {
       el.showModal();
-      setQuery("");
       // Defer focus so dialog is fully rendered
       requestAnimationFrame(() => inputRef.current?.focus());
     } else if (el.open) {

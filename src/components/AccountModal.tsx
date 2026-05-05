@@ -126,8 +126,8 @@ function LoginPanel({ onClose }: { onClose: () => void }) {
           fontSize: "0.875rem",
         }}
       >
-        Sign in to sync your workouts across devices. We'll email you a one-time
-        code.
+        Sign in to sync your workouts across devices. We&apos;ll email you a
+        one-time code.
       </p>
 
       <label className="settings-field">

@@ -17,10 +17,10 @@
     "db:migrate": "tsx db/migrate.ts",
     "sync:dev": "yarn workspace workout-sync dev",
     "sync:start": "yarn workspace workout-sync start",
-    "sync:typecheck": "yarn workspace workout-sync typecheck"
+    "sync:typecheck": "yarn workspace workout-sync typecheck",
+    "prepare": "husky"
   },
   "dependencies": {
-    "workout-shared": "*",
     "@tanstack/react-query": "^5.100.9",
     "@tiptap/core": "3.22.5",
     "@tiptap/extension-collaboration": "^3.22.5",
@@ -40,6 +40,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
+    "workout-shared": "*",
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.7",
     "y-websocket": "^3.0.0",
@@ -59,10 +60,15 @@
     "eslint-config-next": "16.2.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs}": "eslint --fix"
   }
 }

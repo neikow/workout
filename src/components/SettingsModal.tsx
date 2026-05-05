@@ -149,15 +149,15 @@ export function SettingsModal({ open, settings, onClose }: Props) {
   const [selectedTheme, setSelectedTheme] = useState<Theme>(settings.theme);
   const [warmupMarker, setWarmupMarker] = useState(settings.warmupMarker);
   const [dateFormat, setDateFormat] = useState(settings.dateFormat);
-
-  // Sync state from settings whenever the modal opens
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       setSelectedTheme(settings.theme);
       setWarmupMarker(settings.warmupMarker);
       setDateFormat(settings.dateFormat);
     }
-  }, [open, settings.theme, settings.warmupMarker, settings.dateFormat]);
+  }
 
   useEffect(() => {
     const el = dialogRef.current;
