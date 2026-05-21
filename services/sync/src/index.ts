@@ -102,9 +102,8 @@ wss.on(
         ws.send(encodeSyncStep1(doc.ydoc));
       }
     } catch (e) {
-      doc.conns.delete(ws);
-      if (doc.conns.size === 0) {
-        evict(uid);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
       }
       throw e;
     }
