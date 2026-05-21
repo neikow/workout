@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: yarn
 
       - name: Install dependencies
@@ -25,6 +25,11 @@ jobs:
 
       - name: Lint
         run: yarn lint
+
+      - name: Typecheck
+        run: |
+          npx tsc --noEmit
+          yarn sync:typecheck
 
       - name: Test
         run: yarn test

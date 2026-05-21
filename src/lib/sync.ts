@@ -7,6 +7,21 @@ import { WebsocketProvider } from "y-websocket";
 const GUEST_DOC_NAME = "guest";
 const IDB_PREFIX = "workout-y:";
 
+/**
+ * Resolve the sync sidecar URL. Prefers an explicit `NEXT_PUBLIC_SYNC_URL`
+ * (set in dev to reach the sidecar directly, e.g. ws://localhost:1234).
+ * In prod the var is unset — the sidecar is reached same-origin via the nginx
+ * `/sync` route, so derive `wss?://<host>/sync` from the page location instead
+ * of baking a host into the build.
+ */
+export function resolveSyncUrl(): string | undefined {
+  const explicit = process.env.NEXT_PUBLIC_SYNC_URL;
+  if (explicit) return explicit;
+  if (typeof window === "undefined") return undefined;
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/sync`;
+}
+
 export interface SyncTokenResponse {
   token: string;
   userId: string;

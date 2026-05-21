@@ -3,9 +3,18 @@ import { headers } from "next/headers";
 
 export async function clientIp(): Promise<string> {
   const h = await headers();
+  // Prefer X-Real-IP: our nginx sets it from $remote_addr after the real_ip
+  // module resolves the trusted-proxy chain, so it can't be spoofed by the
+  // client. X-Forwarded-For's leftmost entry is client-supplied — only fall
+  // back to it (last entry, the hop nearest us) if X-Real-IP is absent.
+  const real = h.get("x-real-ip");
+  if (real) return real.trim();
   const fwd = h.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return h.get("x-real-ip") ?? "0.0.0.0";
+  if (fwd) {
+    const parts = fwd.split(",");
+    return parts[parts.length - 1].trim();
+  }
+  return "0.0.0.0";
 }
 
 export async function isSameOrigin(): Promise<boolean> {
