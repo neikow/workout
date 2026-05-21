@@ -72,16 +72,6 @@ wss.on(
     doc.conns.add(ws);
     ws.binaryType = "arraybuffer";
 
-    await doc.ready;
-
-    ws.on("message", (raw, isBinary) => {
-      if (!isBinary) return;
-      const buf = Array.isArray(raw) ? Buffer.concat(raw) : (raw as Buffer);
-      const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-      const reply = handleIncoming(bytes, doc.ydoc, ws);
-      if (reply && ws.readyState === WebSocket.OPEN) ws.send(reply);
-    });
-
     ws.on("close", () => {
       doc.conns.delete(ws);
       if (doc.conns.size === 0) {
@@ -93,8 +83,29 @@ wss.on(
       console.error(`[sync] ws error for ${uid}:`, e);
     });
 
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(encodeSyncStep1(doc.ydoc));
+    try {
+      await doc.ready;
+
+      ws.on("message", (raw, isBinary) => {
+        if (!isBinary) return;
+        const buf = Array.isArray(raw) ? Buffer.concat(raw) : (raw as Buffer);
+        const bytes = new Uint8Array(
+          buf.buffer,
+          buf.byteOffset,
+          buf.byteLength,
+        );
+        const reply = handleIncoming(bytes, doc.ydoc, ws);
+        if (reply && ws.readyState === WebSocket.OPEN) ws.send(reply);
+      });
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(encodeSyncStep1(doc.ydoc));
+      }
+    } catch (e) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      throw e;
     }
   },
 );

@@ -34,3 +34,7 @@ export function rateLimit(
 export function _resetRateLimits() {
   buckets.clear();
 }
+
+export function _getBucketCount() {
+  return buckets.size;
+}
