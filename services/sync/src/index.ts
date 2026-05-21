@@ -13,9 +13,18 @@ if (!SECRET) {
 }
 const TOKEN_SECRET = SECRET;
 
-const docs = new Map<string, WorkoutDoc>();
+const MAX_CONNS_PER_UID = 16;
 
-function getDoc(uid: string): WorkoutDoc {
+const docs = new Map<string, WorkoutDoc>();
+// In-flight finalize() per uid. A new connection for the same uid must wait for
+// any pending finalize to finish before loading a fresh doc, otherwise the new
+// doc's load() races the old doc's compaction over the same DB rows.
+const finalizing = new Map<string, Promise<void>>();
+
+async function getDoc(uid: string): Promise<WorkoutDoc> {
+  const pending = finalizing.get(uid);
+  if (pending) await pending;
+
   let doc = docs.get(uid);
   if (doc) return doc;
   doc = new WorkoutDoc(uid, (update, origin) => {
@@ -30,11 +39,14 @@ function getDoc(uid: string): WorkoutDoc {
   return doc;
 }
 
-async function evict(uid: string) {
+function evict(uid: string) {
   const doc = docs.get(uid);
   if (!doc || doc.conns.size > 0) return;
   docs.delete(uid);
-  await doc.finalize();
+  const p = doc.finalize().finally(() => {
+    if (finalizing.get(uid) === p) finalizing.delete(uid);
+  });
+  finalizing.set(uid, p);
 }
 
 function parseUrl(req: IncomingMessage): {
@@ -52,7 +64,11 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on(
   "connection",
   async (ws: WebSocket, _req: IncomingMessage, uid: string) => {
-    const doc = getDoc(uid);
+    const doc = await getDoc(uid);
+    if (doc.conns.size >= MAX_CONNS_PER_UID) {
+      ws.close(1013, "too_many_connections");
+      return;
+    }
     doc.conns.add(ws);
     ws.binaryType = "arraybuffer";
 
@@ -69,7 +85,7 @@ wss.on(
     ws.on("close", () => {
       doc.conns.delete(ws);
       if (doc.conns.size === 0) {
-        void evict(uid);
+        evict(uid);
       }
     });
 

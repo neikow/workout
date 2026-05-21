@@ -16,12 +16,25 @@ services:
     networks:
       - internal
 
+  migrate:
+    image: ${SYNC_IMAGE:-ghcr.io/neikow/workout-sync:latest}
+    command: ["yarn", "migrate"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://workout:${POSTGRES_PASSWORD}@postgres:5432/workout
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
   workout:
     image: ${WORKOUT_IMAGE:-ghcr.io/neikow/workout:latest}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://workout:${POSTGRES_PASSWORD}@postgres:5432/workout
-      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET required}
+      SYNC_TOKEN_SECRET: ${SYNC_TOKEN_SECRET:?SYNC_TOKEN_SECRET required}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -30,6 +43,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - internal
 
@@ -43,6 +58,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - internal
 

@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import * as Y from "yjs";
-import { buildSync, fetchSyncToken, type SyncBundle } from "./sync";
+import {
+  buildSync,
+  fetchSyncToken,
+  resolveSyncUrl,
+  type SyncBundle,
+} from "./sync";
 
 interface SyncState {
   bundle: SyncBundle | null;
@@ -36,7 +41,7 @@ export const useSyncStore = create<SyncState & SyncActions>((set, get) => ({
 
     const next = buildSync({
       userId: nextUserId,
-      syncUrl: process.env.NEXT_PUBLIC_SYNC_URL,
+      syncUrl: resolveSyncUrl(),
       getToken: async () => (await fetchSyncToken()).token,
     });
 

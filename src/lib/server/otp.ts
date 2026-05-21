@@ -1,6 +1,6 @@
 import "server-only";
 import { query } from "./db";
-import { generateOtpCode, hashToken } from "./tokens";
+import { constantTimeEqual, generateOtpCode, hashToken } from "./tokens";
 import { sendOtpEmail } from "./mail";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -90,7 +90,7 @@ export async function verifyOtp(
   }
 
   const codeHash = hashToken(code);
-  if (codeHash !== otp.code_hash) {
+  if (!constantTimeEqual(codeHash, otp.code_hash)) {
     await query("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1", [
       otp.id,
     ]);
