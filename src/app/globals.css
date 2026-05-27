@@ -641,3 +641,35 @@ dialog.settings-dialog[open]::backdrop {
     transition: none;
   }
 }
+
+/* ── Conflict modal ── */
+.conflict-stats {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.conflict-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-ghost-hover);
+  border-radius: 0.375rem;
+}
+
+.conflict-stat-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.conflict-stat-value {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.conflict-actions {
+  display: grid;
+  gap: 0.5rem;
+}
