@@ -152,6 +152,14 @@ export function useAutocomplete(
   }, [editor, sync]);
 
   useEffect(() => {
+    const onScroll = () => {
+      if (menuRef.current) setMenu(null);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, []);
+
+  useEffect(() => {
     if (!editor) return;
 
     const handleKeyDown = (_view: EditorView, e: KeyboardEvent): boolean => {

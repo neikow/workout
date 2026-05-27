@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -11,6 +11,17 @@ import { useSyncStore } from "@/lib/sync-store";
 import { fetchWorkoutDocument } from "@/lib/auth-client";
 import { clearLocalContent, loadLocalContent } from "@/lib/storage";
 import { useSynonyms } from "@/lib/synonyms";
+import {
+  GUEST_IDB_NAME,
+  clearIdbDoc,
+  docToText,
+  readIdbDocText,
+  sameContent,
+  textToDoc,
+} from "@/lib/ydoc-text";
+import { mergeWorkoutText } from "@/lib/merge-workouts";
+import { compileDateFormat } from "./editor/date-format";
+import { ConflictModal, type ConflictChoice } from "./ConflictModal";
 import { defaultRules } from "./editor/default-rules";
 import { DayCard } from "./editor/day-card";
 import {
@@ -99,6 +110,10 @@ function EditorBody({
 }) {
   const settings = useSettings();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [conflict, setConflict] = useState<{
+    local: string;
+    cloud: string;
+  } | null>(null);
 
   const editor = useEditor(
     {
@@ -159,12 +174,56 @@ function EditorBody({
     };
   }, [editor, bundle, isAuthenticated]);
 
+  // Detect divergence between this device's prior guest content and the synced
+  // account doc. If both exist and differ, surface a resolution prompt rather
+  // than letting the CRDT silently merge two separate plans.
+  useEffect(() => {
+    if (!editor || !isAuthenticated) return;
+    let cancelled = false;
+    (async () => {
+      await bundle.whenWsSynced();
+      if (cancelled) return;
+      const guestText = await readIdbDocText(GUEST_IDB_NAME);
+      if (cancelled || !guestText.trim()) return;
+      const cloudText = docToText(bundle.ydoc);
+      if (!cloudText.trim()) return;
+      if (sameContent(guestText, cloudText)) {
+        await clearIdbDoc(GUEST_IDB_NAME);
+        return;
+      }
+      if (!cancelled) setConflict({ local: guestText, cloud: cloudText });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editor, bundle, isAuthenticated]);
+
   useEffect(() => {
     if (!editor) return;
     const current = parserPluginKey.getState(editor.state);
     if (current?.ctx === settings) return;
     editor.view.dispatch(editor.state.tr.setMeta(CONTEXT_META, settings));
   }, [editor, settings]);
+
+  const resolveConflict = useCallback(
+    async (choice: ConflictChoice) => {
+      if (!editor || !conflict) return;
+      if (choice === "local") {
+        editor.commands.setContent(textToDoc(conflict.local), {
+          emitUpdate: true,
+        });
+      } else if (choice === "merge") {
+        const re = compileDateFormat(settings.dateFormat);
+        const merged = mergeWorkoutText(conflict.local, conflict.cloud, (l) =>
+          re.test(l.trim()),
+        );
+        editor.commands.setContent(textToDoc(merged), { emitUpdate: true });
+      }
+      await clearIdbDoc(GUEST_IDB_NAME);
+      setConflict(null);
+    },
+    [editor, conflict, settings.dateFormat],
+  );
 
   const synonyms = useSynonyms(bundle.ydoc);
   const { menu, accept, cycle } = useAutocomplete(editor, settings, synonyms);
@@ -189,6 +248,13 @@ function EditorBody({
         />
       </header>
       <EditorContent editor={editor} />
+      {conflict && (
+        <ConflictModal
+          localText={conflict.local}
+          cloudText={conflict.cloud}
+          onResolve={resolveConflict}
+        />
+      )}
       <SuggestionMenu menu={menu} onAccept={accept} onCycle={cycle} />
       <SearchModal
         open={searchOpen}
