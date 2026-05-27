@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/react";
 import type { Node as PMNode } from "prosemirror-model";
 import type { LineKind, WorkoutContext } from "../types";
+import type { SynonymGroup } from "@/lib/synonyms";
 
 export interface SuggestionContext {
   doc: PMNode;
@@ -9,6 +10,7 @@ export interface SuggestionContext {
   lineText: string;
   workout: WorkoutContext;
   getKind: (pos: number) => LineKind | null;
+  synonyms?: SynonymGroup[];
 }
 
 export interface Suggestion {

@@ -1,5 +1,25 @@
 import { buildExerciseIndex, normalizeName } from "./doc-index";
+import { canonicalFor } from "@/lib/synonyms";
 import type { AutocompleteProvider, Suggestion } from "./types";
+
+export const synonymProvider: AutocompleteProvider = {
+  name: "synonym",
+  getSuggestions(query, ctx) {
+    if (ctx.lineKind !== "exercise") return [];
+    const canonical = canonicalFor(query, ctx.synonyms ?? []);
+    if (!canonical) return [];
+    return [
+      {
+        id: `synonym:${canonical}`,
+        label: canonical,
+        detail: "synonym",
+        apply(editor, range) {
+          editor.chain().focus().insertContentAt(range, canonical).run();
+        },
+      },
+    ];
+  },
+};
 
 export const docExerciseProvider: AutocompleteProvider = {
   name: "doc-exercise",
@@ -59,4 +79,7 @@ export const docExerciseProvider: AutocompleteProvider = {
   },
 };
 
-export const defaultProviders: AutocompleteProvider[] = [docExerciseProvider];
+export const defaultProviders: AutocompleteProvider[] = [
+  synonymProvider,
+  docExerciseProvider,
+];

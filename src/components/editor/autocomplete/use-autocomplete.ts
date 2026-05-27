@@ -7,6 +7,7 @@ import type { WorkoutContext } from "../types";
 import { getKindGetter } from "../workout-parser";
 import { defaultProviders } from "./providers";
 import type { Suggestion, SuggestionContext } from "./types";
+import type { SynonymGroup } from "@/lib/synonyms";
 
 export interface MenuState {
   suggestions: Suggestion[];
@@ -22,6 +23,7 @@ export interface MenuState {
 function computeMenu(
   editor: Editor,
   settings: WorkoutContext,
+  synonyms: SynonymGroup[],
 ): MenuState | null {
   const { $from, from, to } = editor.state.selection;
   if (from !== to) return null;
@@ -58,6 +60,7 @@ function computeMenu(
     lineText,
     workout: settings,
     getKind,
+    synonyms,
   };
 
   const suggestions: Suggestion[] = [];
@@ -98,10 +101,12 @@ function suggestionIds(s: Suggestion[]) {
 export function useAutocomplete(
   editor: Editor | null,
   settings: WorkoutContext,
+  synonyms: SynonymGroup[] = [],
 ) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
   const settingsRef = useRef(settings);
+  const synonymsRef = useRef(synonyms);
 
   useEffect(() => {
     menuRef.current = menu;
@@ -111,12 +116,16 @@ export function useAutocomplete(
     settingsRef.current = settings;
   }, [settings]);
 
+  useEffect(() => {
+    synonymsRef.current = synonyms;
+  }, [synonyms]);
+
   const sync = useCallback(() => {
     if (!editor) {
       setMenu(null);
       return;
     }
-    const next = computeMenu(editor, settingsRef.current);
+    const next = computeMenu(editor, settingsRef.current, synonymsRef.current);
     if (!next) {
       setMenu(null);
       return;
