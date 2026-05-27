@@ -1,8 +1,15 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import type * as Y from "yjs";
 import type { Theme, WorkoutContext } from "@/components/editor/types";
 import { updateSettings } from "@/lib/settings";
+import {
+  addSynonymGroup,
+  removeSynonymGroup,
+  updateSynonymGroup,
+  useSynonyms,
+} from "@/lib/synonyms";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 
@@ -64,6 +71,100 @@ const THEMES: ThemeOption[] = [
     },
   },
 ];
+
+function SynonymsSection({ ydoc }: { ydoc: Y.Doc }) {
+  const groups = useSynonyms(ydoc);
+  const [newCanonical, setNewCanonical] = useState("");
+
+  function handleAdd() {
+    addSynonymGroup(ydoc, newCanonical);
+    setNewCanonical("");
+  }
+
+  return (
+    <div className="settings-editor-section">
+      <span
+        className="settings-section-label"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Exercise synonyms
+      </span>
+      <span
+        className="settings-hint"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Group different names for the same exercise. While typing, variants are
+        suggested as the canonical name.
+      </span>
+
+      <div className="synonym-list">
+        {groups.map((g) => (
+          <div key={g.id} className="synonym-group">
+            <div className="synonym-row">
+              <Input
+                value={g.canonical}
+                aria-label="Canonical name"
+                onChange={(e) =>
+                  updateSynonymGroup(ydoc, g.id, { canonical: e.target.value })
+                }
+              />
+              <Button
+                variant="icon"
+                aria-label="Remove group"
+                onClick={() => removeSynonymGroup(ydoc, g.id)}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M3.5 3.5l9 9M12.5 3.5l-9 9"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </Button>
+            </div>
+            <Input
+              value={g.variants.join(", ")}
+              aria-label="Variants"
+              placeholder="Other names, comma-separated"
+              onChange={(e) =>
+                updateSynonymGroup(ydoc, g.id, {
+                  variants: e.target.value
+                    .split(",")
+                    .map((v) => v.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+        ))}
+      </div>
+
+      <form
+        className="synonym-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleAdd();
+        }}
+      >
+        <Input
+          value={newCanonical}
+          placeholder="New canonical name"
+          onChange={(e) => setNewCanonical(e.target.value)}
+        />
+        <Button variant="ghost" type="submit" disabled={!newCanonical.trim()}>
+          Add
+        </Button>
+      </form>
+    </div>
+  );
+}
 
 function ThemePreview({ theme }: { theme: ThemeOption }) {
   const isAuto = theme.id === "system";
@@ -141,10 +242,11 @@ function ThemePreview({ theme }: { theme: ThemeOption }) {
 interface Props {
   open: boolean;
   settings: WorkoutContext;
+  ydoc: Y.Doc;
   onClose: () => void;
 }
 
-export function SettingsModal({ open, settings, onClose }: Props) {
+export function SettingsModal({ open, settings, ydoc, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [selectedTheme, setSelectedTheme] = useState<Theme>(settings.theme);
   const [warmupMarker, setWarmupMarker] = useState(settings.warmupMarker);
@@ -293,6 +395,10 @@ export function SettingsModal({ open, settings, onClose }: Props) {
             </span>
           </label>
         </div>
+
+        <div style={{ height: "1px", background: "var(--color-border)" }} />
+
+        <SynonymsSection ydoc={ydoc} />
       </div>
 
       <div

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import type * as Y from "yjs";
 import type { WorkoutContext } from "@/components/editor/types";
 import { SettingsModal } from "./SettingsModal";
 import { AccountModal } from "./AccountModal";
@@ -34,10 +35,11 @@ function insertEntry(editor: Editor, dateStr: string) {
 interface Props {
   editor: Editor | null;
   settings: WorkoutContext;
+  ydoc: Y.Doc;
   onSearchOpen: () => void;
 }
 
-export function Toolbar({ editor, settings, onSearchOpen }: Props) {
+export function Toolbar({ editor, settings, ydoc, onSearchOpen }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -166,6 +168,7 @@ export function Toolbar({ editor, settings, onSearchOpen }: Props) {
       <SettingsModal
         open={settingsOpen}
         settings={settings}
+        ydoc={ydoc}
         onClose={() => setSettingsOpen(false)}
       />
       <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />

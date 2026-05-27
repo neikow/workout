@@ -10,6 +10,7 @@ import { type SyncBundle } from "@/lib/sync";
 import { useSyncStore } from "@/lib/sync-store";
 import { fetchWorkoutDocument } from "@/lib/auth-client";
 import { clearLocalContent, loadLocalContent } from "@/lib/storage";
+import { useSynonyms } from "@/lib/synonyms";
 import { defaultRules } from "./editor/default-rules";
 import { DayCard } from "./editor/day-card";
 import {
@@ -165,7 +166,8 @@ function EditorBody({
     editor.view.dispatch(editor.state.tr.setMeta(CONTEXT_META, settings));
   }, [editor, settings]);
 
-  const { menu, accept, cycle } = useAutocomplete(editor, settings);
+  const synonyms = useSynonyms(bundle.ydoc);
+  const { menu, accept, cycle } = useAutocomplete(editor, settings, synonyms);
 
   if (!editor) return <EditorShell loading />;
 
@@ -182,6 +184,7 @@ function EditorBody({
         <Toolbar
           editor={editor}
           settings={settings}
+          ydoc={bundle.ydoc}
           onSearchOpen={() => setSearchOpen(true)}
         />
       </header>
