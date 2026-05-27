@@ -371,7 +371,7 @@ dialog.settings-dialog[open]::backdrop {
 /* Day cards */
 .workout-editor .day-card-start,
 .workout-editor .day-card-only {
-  margin-top: 0.875rem;
+  margin-top: 2rem;
   border-top:   1px solid var(--color-card-border);
   border-left:  1px solid var(--color-card-border);
   border-right: 1px solid var(--color-card-border);
