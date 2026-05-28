@@ -1,0 +1,14 @@
+# Auto-loaded by `docker compose up` on top of docker-compose.yml. Wires the
+# sync sidecar for live development: source dirs bind-mounted in, tsx running
+# in watch mode so saving a .ts file restarts the process inside the container.
+services:
+  sync:
+    command: ["yarn", "dev"]
+    volumes:
+      - ./services/sync/src:/app/services/sync/src:ro
+      - ./services/sync/tsconfig.json:/app/services/sync/tsconfig.json:ro
+      - ./packages/shared/src:/app/packages/shared/src:ro
+      - ./packages/shared/package.json:/app/packages/shared/package.json:ro
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"

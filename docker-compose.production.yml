@@ -18,7 +18,8 @@ services:
 
   migrate:
     image: ${SYNC_IMAGE:-ghcr.io/neikow/workout-sync:latest}
-    command: ["yarn", "db:migrate"]
+    working_dir: /app
+    command: ["yarn", "migrate"]
     restart: "no"
     environment:
       DATABASE_URL: postgres://workout:${POSTGRES_PASSWORD}@postgres:5432/workout

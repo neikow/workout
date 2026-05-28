@@ -23,6 +23,17 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  pgweb:
+    image: sosedoff/pgweb:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      PGWEB_DATABASE_URL: postgres://workout:workout@postgres:5432/workout?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   sync:
     build:
       context: .
