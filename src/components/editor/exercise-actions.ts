@@ -1,6 +1,5 @@
 import type { Editor } from "@tiptap/react";
 import { type EditorState, TextSelection } from "prosemirror-state";
-import { Fragment } from "prosemirror-model";
 import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
@@ -9,6 +8,8 @@ import {
   findExerciseBlock,
   getBlockText,
   indexInDay,
+  indexOfBlock,
+  listAllExerciseBlocks,
   listExercisesInDay,
 } from "./exercise-block";
 
@@ -21,6 +22,10 @@ export interface BlockContext {
   siblings: BlockRange[];
   /** Position of `block` inside `siblings`. */
   positionInDay: number;
+  /** Every exercise block in the doc (cross-day reorder uses this). */
+  allBlocks: BlockRange[];
+  /** Position of `block` inside `allBlocks`. */
+  positionInAll: number;
   /** Plain text of the block's first paragraph (the exercise name). */
   name: string;
   /** Full text of the block (name + sets), newline-joined. */
@@ -45,56 +50,71 @@ export function resolveBlockContext(
   if (!day) return null;
   const siblings = listExercisesInDay(items, day);
   const positionInDay = indexInDay(siblings, block);
+  const allBlocks = listAllExerciseBlocks(items);
+  const positionInAll = indexOfBlock(allBlocks, block);
   return {
     block,
     day,
     siblings,
     positionInDay,
+    allBlocks,
+    positionInAll,
     name: items[block.firstItemIndex]!.text,
     text: getBlockText(items, block),
   };
 }
 
-function swap(editor: Editor, earlier: BlockRange, later: BlockRange) {
+/**
+ * Splice the source block out of its current position and back in at
+ * `dropPos`. Used by both the menu's move-up/down actions and the drag-and-
+ * drop drop handler. The shift accounts for the source's range moving when
+ * we insert before it.
+ */
+function moveBlock(editor: Editor, source: BlockRange, dropPos: number) {
+  if (dropPos >= source.from && dropPos <= source.to) return;
   const { state } = editor;
-  const { doc, tr } = state;
-  // earlier.to === later.from for blocks listed by listExercisesInDay.
-  const earlierContent = doc.slice(earlier.from, earlier.to).content;
-  const laterContent = doc.slice(later.from, later.to).content;
-  const combined = Fragment.empty.append(laterContent).append(earlierContent);
-  tr.replaceWith(earlier.from, later.to, combined);
+  const slice = state.doc.slice(source.from, source.to);
+  const tr = state.tr;
+  tr.insert(dropPos, slice.content);
+  const shift = dropPos <= source.from ? slice.content.size : 0;
+  tr.delete(source.from + shift, source.to + shift);
   editor.view.dispatch(tr);
 }
 
 export function canMoveUp(ctx: BlockContext): boolean {
-  return ctx.positionInDay > 0;
+  return ctx.positionInAll > 0;
 }
 
 export function canMoveDown(ctx: BlockContext): boolean {
   return (
-    ctx.positionInDay !== -1 && ctx.positionInDay < ctx.siblings.length - 1
+    ctx.positionInAll !== -1 && ctx.positionInAll < ctx.allBlocks.length - 1
   );
 }
 
+/**
+ * Move the block to land immediately above the previous block in the
+ * doc — including blocks belonging to the next-newer day. The block
+ * picks up the new day's membership automatically because day-bounds are
+ * computed from the surrounding date paragraphs.
+ */
 export function moveUp(editor: Editor, ctx: BlockContext): BlockContext | null {
   if (!canMoveUp(ctx)) return null;
-  const prev = ctx.siblings[ctx.positionInDay - 1]!;
-  swap(editor, prev, ctx.block);
+  const prev = ctx.allBlocks[ctx.positionInAll - 1]!;
+  moveBlock(editor, ctx.block, prev.from);
   return resolveBlockContext(editor.state, prev.from);
 }
 
+/** Move the block below the next block in the doc (possibly across days). */
 export function moveDown(
   editor: Editor,
   ctx: BlockContext,
 ): BlockContext | null {
   if (!canMoveDown(ctx)) return null;
-  const next = ctx.siblings[ctx.positionInDay + 1]!;
-  swap(editor, ctx.block, next);
-  // After swap, ctx.block's content lives at the address `next` used to occupy.
-  return resolveBlockContext(
-    editor.state,
-    ctx.block.from + next.to - next.from,
-  );
+  const next = ctx.allBlocks[ctx.positionInAll + 1]!;
+  moveBlock(editor, ctx.block, next.to);
+  // After insert+delete the source ended up at next.to - source.size.
+  const sourceSize = ctx.block.to - ctx.block.from;
+  return resolveBlockContext(editor.state, next.to - sourceSize);
 }
 
 export function deleteBlock(editor: Editor, ctx: BlockContext): void {

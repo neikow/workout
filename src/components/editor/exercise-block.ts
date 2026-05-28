@@ -159,3 +159,23 @@ export function getBlockText(items: DocItem[], block: BlockRange): string {
 export function indexInDay(exercises: BlockRange[], block: BlockRange): number {
   return exercises.findIndex((b) => b.from === block.from && b.to === block.to);
 }
+
+/** Every exercise block in the doc, in document order (across all days). */
+export function listAllExerciseBlocks(items: DocItem[]): BlockRange[] {
+  const out: BlockRange[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (items[i]!.kind === "exercise") {
+      const block = findExerciseBlock(items, items[i]!.from);
+      if (block) {
+        out.push(block);
+        i = block.lastItemIndex;
+      }
+    }
+  }
+  return out;
+}
+
+/** Find a block's index in a flat-ordered list. */
+export function indexOfBlock(blocks: BlockRange[], block: BlockRange): number {
+  return blocks.findIndex((b) => b.from === block.from && b.to === block.to);
+}

@@ -2,25 +2,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
-import { canonicalFor, findGroupFor, type SynonymGroup } from "@/lib/synonyms";
+import type { SynonymGroup } from "@/lib/synonyms";
 import {
   type BlockContext,
-  canMoveDown,
-  canMoveUp,
-  copyBlockText,
-  deleteBlock,
-  insertExerciseAbove,
-  insertExerciseBelow,
-  moveDown,
-  moveUp,
   resolveBlockContext,
 } from "./editor/exercise-actions";
+import { buildExerciseMenuItems } from "./editor/exercise-menu-items";
 
 interface Props {
   editor: Editor;
   synonyms: SynonymGroup[];
   open: {
-    /** Block start position used to look up the live BlockContext. */
     blockFrom: number;
     anchorRect: DOMRect;
   } | null;
@@ -28,15 +20,6 @@ interface Props {
   onAddSynonym(ctx: BlockContext): void;
   onJumpLast(ctx: BlockContext): void;
   onRepeatLast(ctx: BlockContext): void;
-}
-
-interface Item {
-  key: string;
-  label: string;
-  hint?: string;
-  disabled?: boolean;
-  destructive?: boolean;
-  onSelect(): void;
 }
 
 export function ExerciseMenu({
@@ -90,94 +73,15 @@ export function ExerciseMenu({
   const ctx = resolveBlockContext(editor.state, open.blockFrom);
   if (!ctx) return null;
 
-  const group = findGroupFor(ctx.name, synonyms);
-  const variantOf = canonicalFor(ctx.name, synonyms);
-
-  const synonymLabel = group
-    ? variantOf
-      ? `Add synonym — currently a variant of ${group.canonical}`
-      : `Add synonym to ${group.canonical}`
-    : "Add synonym…";
-
-  const items: Item[] = [
-    {
-      key: "up",
-      label: "Move up",
-      hint: "⌥↑",
-      disabled: !canMoveUp(ctx),
-      onSelect: () => {
-        moveUp(editor, ctx);
-        onClose();
-      },
-    },
-    {
-      key: "down",
-      label: "Move down",
-      hint: "⌥↓",
-      disabled: !canMoveDown(ctx),
-      onSelect: () => {
-        moveDown(editor, ctx);
-        onClose();
-      },
-    },
-    {
-      key: "above",
-      label: "Insert exercise above",
-      onSelect: () => {
-        insertExerciseAbove(editor, ctx);
-        onClose();
-      },
-    },
-    {
-      key: "below",
-      label: "Insert exercise below",
-      onSelect: () => {
-        insertExerciseBelow(editor, ctx);
-        onClose();
-      },
-    },
-    {
-      key: "copy",
-      label: "Copy text",
-      onSelect: () => {
-        void copyBlockText(ctx);
-        onClose();
-      },
-    },
-    {
-      key: "synonym",
-      label: synonymLabel,
-      onSelect: () => {
-        onAddSynonym(ctx);
-        onClose();
-      },
-    },
-    {
-      key: "jump",
-      label: "Jump to last occurrence",
-      onSelect: () => {
-        onJumpLast(ctx);
-        onClose();
-      },
-    },
-    {
-      key: "repeat",
-      label: "Repeat last session",
-      onSelect: () => {
-        onRepeatLast(ctx);
-        onClose();
-      },
-    },
-    {
-      key: "delete",
-      label: "Delete",
-      destructive: true,
-      onSelect: () => {
-        deleteBlock(editor, ctx);
-        onClose();
-      },
-    },
-  ];
+  const items = buildExerciseMenuItems({
+    editor,
+    ctx,
+    synonyms,
+    onAddSynonym,
+    onJumpLast,
+    onRepeatLast,
+    onClose,
+  });
 
   return (
     <div
@@ -208,7 +112,7 @@ export function ExerciseMenu({
           onMouseDown={(e) => e.preventDefault()}
           onClick={(e) => {
             e.preventDefault();
-            it.onSelect();
+            it.run();
           }}
           style={{
             display: "flex",
