@@ -294,6 +294,106 @@ function buildHandle(from: number, to: number): HTMLElement {
   return wrap;
 }
 
+// --- Mobile long-press → menu ------------------------------------------------
+//
+// On touch devices the grip handle is hidden (see globals.css). Instead, a
+// long-press anywhere on an exercise paragraph (or its trailing set lines)
+// raises the same EXERCISE_HANDLE_EVENT the click handler uses, so the
+// React layer can show a bottom-sheet without duplicating block detection.
+
+const LONG_PRESS_MENU_MS = 420;
+const LONG_PRESS_MENU_TOLERANCE = 12;
+
+interface LongPressState {
+  timer: number;
+  startX: number;
+  startY: number;
+  fired: boolean;
+  view: EditorView;
+  blockFrom: number;
+  blockTo: number;
+}
+
+let longPress: LongPressState | null = null;
+
+function cancelLongPress() {
+  if (!longPress) return;
+  window.clearTimeout(longPress.timer);
+  longPress = null;
+}
+
+function fireMenuFromLongPress(view: EditorView, lp: LongPressState) {
+  const dom = view.nodeDOM(lp.blockFrom);
+  const rect =
+    dom instanceof HTMLElement
+      ? dom.getBoundingClientRect()
+      : new DOMRect(lp.startX, lp.startY, 0, 0);
+  view.dom.dispatchEvent(
+    new CustomEvent<ExerciseHandleEventDetail>(EXERCISE_HANDLE_EVENT, {
+      detail: { from: lp.blockFrom, to: lp.blockTo, anchorRect: rect },
+      bubbles: true,
+    }),
+  );
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
+function onEditorTouchStart(view: EditorView, e: TouchEvent): boolean {
+  // Multi-touch or already-tracked: bail.
+  if (e.touches.length !== 1 || longPress) return false;
+  // Drag mode initiated separately by the grip button — don't double-trigger.
+  if (activeDrag) return false;
+
+  const t = e.touches[0]!;
+  const coords = view.posAtCoords({ left: t.clientX, top: t.clientY });
+  if (!coords) return false;
+  const kindByPos = getParserKindMap(view.state);
+  if (!kindByPos) return false;
+  const items = collectDocItems(view.state.doc, kindByPos);
+  const block = findExerciseBlock(items, coords.pos);
+  if (!block) return false;
+
+  longPress = {
+    startX: t.clientX,
+    startY: t.clientY,
+    fired: false,
+    view,
+    blockFrom: block.from,
+    blockTo: block.to,
+    timer: window.setTimeout(() => {
+      if (!longPress) return;
+      longPress.fired = true;
+      fireMenuFromLongPress(view, longPress);
+    }, LONG_PRESS_MENU_MS),
+  };
+  return false;
+}
+
+function onEditorTouchMove(e: TouchEvent): boolean {
+  if (!longPress) return false;
+  const t = e.touches[0];
+  if (!t) return false;
+  const dx = Math.abs(t.clientX - longPress.startX);
+  const dy = Math.abs(t.clientY - longPress.startY);
+  if (dx > LONG_PRESS_MENU_TOLERANCE || dy > LONG_PRESS_MENU_TOLERANCE) {
+    cancelLongPress();
+  }
+  return false;
+}
+
+function onEditorTouchEnd(e: TouchEvent): boolean {
+  if (!longPress) return false;
+  if (longPress.fired) {
+    // Suppress the synthesised mouse/click that would move the caret into
+    // the just-pressed paragraph.
+    e.preventDefault();
+    e.stopPropagation();
+    cancelLongPress();
+    return true;
+  }
+  cancelLongPress();
+  return false;
+}
+
 function buildDecorations(state: EditorState): DecorationSet {
   const doc = state.doc;
   const kindMap = getParserKindMap(state);
@@ -368,6 +468,19 @@ export const ExerciseHandle = Extension.create({
             },
             dragend() {
               clearDrag();
+              return false;
+            },
+            touchstart(view, event) {
+              return onEditorTouchStart(view, event as TouchEvent);
+            },
+            touchmove(_view, event) {
+              return onEditorTouchMove(event as TouchEvent);
+            },
+            touchend(_view, event) {
+              return onEditorTouchEnd(event as TouchEvent);
+            },
+            touchcancel() {
+              cancelLongPress();
               return false;
             },
           },

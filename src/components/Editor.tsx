@@ -35,7 +35,9 @@ import {
 } from "./editor/exercise-history";
 import type { BlockContext } from "./editor/exercise-actions";
 import { ExerciseMenu } from "./ExerciseMenu";
+import { ExerciseBottomSheet } from "./ExerciseBottomSheet";
 import { SynonymPickerModal } from "./SynonymPickerModal";
+import { useIsTouchDevice } from "@/lib/use-touch-device";
 import {
   CONTEXT_META,
   WorkoutParser,
@@ -123,6 +125,7 @@ function EditorBody({
   isAuthenticated: boolean;
 }) {
   const settings = useSettings();
+  const isTouch = useIsTouchDevice();
   const [searchOpen, setSearchOpen] = useState(false);
   const [conflict, setConflict] = useState<{
     local: string;
@@ -321,15 +324,27 @@ function EditorBody({
         editor={editor}
         onClose={() => setSearchOpen(false)}
       />
-      <ExerciseMenu
-        editor={editor}
-        synonyms={synonyms}
-        open={menuOpen}
-        onClose={() => setMenuOpen(null)}
-        onAddSynonym={onAddSynonym}
-        onJumpLast={onJumpLast}
-        onRepeatLast={onRepeatLast}
-      />
+      {isTouch ? (
+        <ExerciseBottomSheet
+          editor={editor}
+          synonyms={synonyms}
+          open={menuOpen ? { blockFrom: menuOpen.blockFrom } : null}
+          onClose={() => setMenuOpen(null)}
+          onAddSynonym={onAddSynonym}
+          onJumpLast={onJumpLast}
+          onRepeatLast={onRepeatLast}
+        />
+      ) : (
+        <ExerciseMenu
+          editor={editor}
+          synonyms={synonyms}
+          open={menuOpen}
+          onClose={() => setMenuOpen(null)}
+          onAddSynonym={onAddSynonym}
+          onJumpLast={onJumpLast}
+          onRepeatLast={onRepeatLast}
+        />
+      )}
       <SynonymPickerModal
         key={pickerOpen ?? "closed"}
         open={pickerOpen !== null}

@@ -466,10 +466,29 @@ dialog.settings-dialog[open]::backdrop {
   opacity: 1;
 }
 
-/* Mobile: hover doesn't exist; keep the handle visible at low opacity. */
-@media (hover: none) {
-  .workout-editor .exercise-handle {
-    opacity: 0.4;
+/* Touch devices: long-press on the exercise text opens the bottom sheet, so
+   the grip handle is unnecessary and would crowd the gutter. */
+@media (hover: none) and (pointer: coarse) {
+  .workout-editor .exercise-handle-wrap {
+    display: none;
+  }
+}
+
+@keyframes exercise-sheet-slide {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes exercise-sheet-fade {
+  from {
+    background: oklch(0% 0 0 / 0);
+  }
+  to {
+    background: oklch(0% 0 0 / 0.35);
   }
 }
 
