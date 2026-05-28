@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import * as Y from "yjs";
+import * as awarenessProtocol from "y-protocols/awareness";
 
 const COMPACT_THRESHOLD = 100;
 
@@ -111,6 +112,7 @@ async function pendingUpdateCount(uid: string): Promise<number> {
 
 export class WorkoutDoc {
   readonly ydoc = new Y.Doc({ gc: true });
+  readonly awareness = new awarenessProtocol.Awareness(this.ydoc);
   readonly conns = new Set<unknown>();
   readonly ready: Promise<void>;
   private compacting = false;
@@ -125,6 +127,8 @@ export class WorkoutDoc {
       origin: unknown,
     ) => void,
   ) {
+    // Server doesn't participate in awareness with its own client state.
+    this.awareness.setLocalState(null);
     this.ready = this.load();
   }
 
@@ -176,6 +180,7 @@ export class WorkoutDoc {
     } catch (e) {
       console.error(`[sync] finalize compact failed for ${this.uid}:`, e);
     }
+    this.awareness.destroy();
     this.ydoc.destroy();
   }
 }
