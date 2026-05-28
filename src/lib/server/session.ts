@@ -1,6 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { query } from "./db";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { sessions } from "@db/schema";
+import { getDb } from "./db";
 import { generateOpaqueToken, hashToken } from "./tokens";
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -18,51 +20,68 @@ export type SessionRow = {
   revoked_at: Date | null;
 };
 
+function toRow(s: typeof sessions.$inferSelect): SessionRow {
+  return {
+    id: s.id,
+    user_id: s.userId,
+    device_name: s.deviceName,
+    expires_at: s.expiresAt,
+    created_at: s.createdAt,
+    last_seen_at: s.lastSeenAt,
+    revoked_at: s.revokedAt,
+  };
+}
+
 export async function createSession(
   userId: string,
   deviceName: string | null,
 ): Promise<{ token: string; sessionId: string; expiresAt: Date }> {
+  const db = getDb();
   const token = generateOpaqueToken(32);
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  const res = await query<{ id: string }>(
-    `INSERT INTO sessions(user_id, device_name, refresh_token_hash, expires_at)
-     VALUES ($1, $2, $3, $4) RETURNING id`,
-    [userId, deviceName, tokenHash, expiresAt],
-  );
-  return { token, sessionId: res.rows[0].id, expiresAt };
+  const created = await db
+    .insert(sessions)
+    .values({
+      userId,
+      deviceName,
+      refreshTokenHash: tokenHash,
+      expiresAt,
+    })
+    .returning({ id: sessions.id });
+  return { token, sessionId: created[0]!.id, expiresAt };
 }
 
 export async function readSessionByToken(
   token: string,
 ): Promise<SessionRow | null> {
+  const db = getDb();
   const tokenHash = hashToken(token);
-  const res = await query<SessionRow>(
-    `SELECT id, user_id, device_name, expires_at, created_at, last_seen_at, revoked_at
-     FROM sessions
-     WHERE refresh_token_hash = $1`,
-    [tokenHash],
-  );
-  const s = res.rows[0];
+  const rows = await db
+    .select()
+    .from(sessions)
+    .where(eq(sessions.refreshTokenHash, tokenHash))
+    .limit(1);
+  const s = rows[0];
   if (!s) return null;
-  if (s.revoked_at) return null;
-  if (new Date(s.expires_at).getTime() <= Date.now()) return null;
-  return s;
+  if (s.revokedAt) return null;
+  if (new Date(s.expiresAt).getTime() <= Date.now()) return null;
+  return toRow(s);
 }
 
 export async function touchSession(sessionId: string): Promise<Date> {
+  const db = getDb();
   // Sliding expiry: bump expires_at if past refresh threshold.
   const newExpires = new Date(Date.now() + SESSION_TTL_MS);
-  await query(
-    `UPDATE sessions
-     SET last_seen_at = now(),
-         expires_at = CASE
-           WHEN expires_at - now() < $2::interval THEN $1
-           ELSE expires_at
-         END
-     WHERE id = $3`,
-    [newExpires, `${REFRESH_THRESHOLD_MS / 1000} seconds`, sessionId],
-  );
+  await db
+    .update(sessions)
+    .set({
+      lastSeenAt: sql`now()`,
+      expiresAt: sql`CASE WHEN ${sessions.expiresAt} - now() < ${`${REFRESH_THRESHOLD_MS / 1000} seconds`}::interval
+                          THEN ${newExpires}
+                          ELSE ${sessions.expiresAt} END`,
+    })
+    .where(eq(sessions.id, sessionId));
   return newExpires;
 }
 
@@ -70,23 +89,35 @@ export async function revokeSession(
   sessionId: string,
   userId: string,
 ): Promise<boolean> {
-  const res = await query(
-    `UPDATE sessions SET revoked_at = now()
-     WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
-    [sessionId, userId],
-  );
-  return (res.rowCount ?? 0) > 0;
+  const db = getDb();
+  const res = await db
+    .update(sessions)
+    .set({ revokedAt: sql`now()` })
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        eq(sessions.userId, userId),
+        isNull(sessions.revokedAt),
+      ),
+    )
+    .returning({ id: sessions.id });
+  return res.length > 0;
 }
 
 export async function listUserSessions(userId: string): Promise<SessionRow[]> {
-  const res = await query<SessionRow>(
-    `SELECT id, user_id, device_name, expires_at, created_at, last_seen_at, revoked_at
-     FROM sessions
-     WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
-     ORDER BY last_seen_at DESC`,
-    [userId],
-  );
-  return res.rows;
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        isNull(sessions.revokedAt),
+        gt(sessions.expiresAt, sql`now()`),
+      ),
+    )
+    .orderBy(desc(sessions.lastSeenAt));
+  return rows.map(toRow);
 }
 
 export function buildCookie(token: string, expiresAt: Date) {
