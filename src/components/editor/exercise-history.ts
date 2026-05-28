@@ -94,18 +94,21 @@ export function jumpToLastOccurrence(
     return;
   }
   const pos = last.block.from + 1;
-  editor.commands.focus(pos);
   const dom = editor.view.domAtPos(pos);
   const node = dom.node;
   const el =
     node.nodeType === Node.TEXT_NODE
       ? (node.parentElement as HTMLElement | null)
       : (node as HTMLElement);
-  if (el) {
-    el.scrollIntoView({ block: "center", behavior: "smooth" });
-    el.classList.add("exercise-flash");
-    window.setTimeout(() => el.classList.remove("exercise-flash"), 1300);
-  }
+  if (!el) return;
+  // Land the target ~15% from the top of the viewport — enough room above
+  // for the day's date header to stay in context, no big empty space below
+  // (which "block: center" produced).
+  const rect = el.getBoundingClientRect();
+  const targetTop = rect.top + window.scrollY - window.innerHeight * 0.15;
+  window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+  el.classList.add("exercise-flash");
+  window.setTimeout(() => el.classList.remove("exercise-flash"), 1300);
 }
 
 function makeParagraph(schema: Schema, text: string) {
