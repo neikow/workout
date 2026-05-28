@@ -12,6 +12,7 @@
   "dependencies": {
     "workout-shared": "*",
     "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
     "lib0": "^0.2.99",
     "pg": "^8.20.0",
     "ws": "^8.18.0",

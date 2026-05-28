@@ -9,6 +9,7 @@ services:
       - ./services/sync/tsconfig.json:/app/services/sync/tsconfig.json:ro
       - ./packages/shared/src:/app/packages/shared/src:ro
       - ./packages/shared/package.json:/app/packages/shared/package.json:ro
+      - ./db:/app/db:ro
     environment:
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"

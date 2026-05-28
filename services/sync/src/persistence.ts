@@ -1,113 +1,112 @@
-import { Pool } from "pg";
+import { and, eq, gt, lte, sql } from "drizzle-orm";
 import * as Y from "yjs";
 import * as awarenessProtocol from "y-protocols/awareness";
+import { workoutDocSnapshots, workoutDocUpdates } from "../../../db/schema.js";
+import { getDb } from "./db.js";
 
 const COMPACT_THRESHOLD = 100;
-
-let pool: Pool | null = null;
-
-function getPool(): Pool {
-  if (pool) return pool;
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL not set");
-  pool = new Pool({ connectionString: url, max: 10 });
-  return pool;
-}
-
-interface SnapshotRow {
-  state: Buffer;
-  through_seq: string;
-}
 
 async function loadSnapshot(
   uid: string,
 ): Promise<{ state: Uint8Array; throughSeq: number } | null> {
-  const r = await getPool().query<SnapshotRow>(
-    "SELECT state, through_seq FROM workout_doc_snapshots WHERE user_id = $1",
-    [uid],
-  );
-  const row = r.rows[0];
+  const rows = await getDb()
+    .select({
+      state: workoutDocSnapshots.state,
+      throughSeq: workoutDocSnapshots.throughSeq,
+    })
+    .from(workoutDocSnapshots)
+    .where(eq(workoutDocSnapshots.userId, uid))
+    .limit(1);
+  const row = rows[0];
   if (!row) return null;
   return {
     state: new Uint8Array(row.state),
-    throughSeq: Number(row.through_seq),
+    throughSeq: Number(row.throughSeq),
   };
-}
-
-interface UpdateRow {
-  seq: string;
-  update: Buffer;
 }
 
 async function loadUpdatesAfter(
   uid: string,
   throughSeq: number,
 ): Promise<{ seq: number; update: Uint8Array }[]> {
-  const r = await getPool().query<UpdateRow>(
-    `SELECT seq, update FROM workout_doc_updates
-     WHERE user_id = $1 AND seq > $2
-     ORDER BY seq ASC`,
-    [uid, throughSeq],
-  );
-  return r.rows.map((row) => ({
+  const rows = await getDb()
+    .select({
+      seq: workoutDocUpdates.seq,
+      update: workoutDocUpdates.update,
+    })
+    .from(workoutDocUpdates)
+    .where(
+      and(
+        eq(workoutDocUpdates.userId, uid),
+        gt(workoutDocUpdates.seq, throughSeq),
+      ),
+    )
+    .orderBy(workoutDocUpdates.seq);
+  return rows.map((row) => ({
     seq: Number(row.seq),
     update: new Uint8Array(row.update),
   }));
 }
 
 async function appendUpdate(uid: string, update: Uint8Array): Promise<number> {
-  const r = await getPool().query<{ seq: string }>(
-    `INSERT INTO workout_doc_updates (user_id, update)
-     VALUES ($1, $2) RETURNING seq`,
-    [uid, Buffer.from(update)],
-  );
-  const row = r.rows[0];
+  const rows = await getDb()
+    .insert(workoutDocUpdates)
+    .values({ userId: uid, update: Buffer.from(update) })
+    .returning({ seq: workoutDocUpdates.seq });
+  const row = rows[0];
   if (!row) throw new Error("append failed");
   return Number(row.seq);
 }
 
 async function compact(uid: string, ydoc: Y.Doc): Promise<void> {
-  const client = await getPool().connect();
-  try {
-    await client.query("BEGIN");
-    const maxRes = await client.query<{ max: string | null }>(
-      "SELECT MAX(seq) AS max FROM workout_doc_updates WHERE user_id = $1",
-      [uid],
-    );
-    const maxSeq = maxRes.rows[0]?.max ? Number(maxRes.rows[0].max) : 0;
+  await getDb().transaction(async (tx) => {
+    const maxRes = await tx
+      .select({ max: sql<string | null>`MAX(${workoutDocUpdates.seq})` })
+      .from(workoutDocUpdates)
+      .where(eq(workoutDocUpdates.userId, uid));
+    const maxSeq = maxRes[0]?.max ? Number(maxRes[0].max) : 0;
     const state = Buffer.from(Y.encodeStateAsUpdate(ydoc));
-    await client.query(
-      `INSERT INTO workout_doc_snapshots (user_id, state, through_seq, updated_at)
-       VALUES ($1, $2, $3, now())
-       ON CONFLICT (user_id) DO UPDATE
-         SET state = EXCLUDED.state,
-             through_seq = EXCLUDED.through_seq,
-             updated_at = now()`,
-      [uid, state, maxSeq],
-    );
-    await client.query(
-      "DELETE FROM workout_doc_updates WHERE user_id = $1 AND seq <= $2",
-      [uid, maxSeq],
-    );
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+    await tx
+      .insert(workoutDocSnapshots)
+      .values({
+        userId: uid,
+        state,
+        throughSeq: maxSeq,
+        updatedAt: sql`now()`,
+      })
+      .onConflictDoUpdate({
+        target: workoutDocSnapshots.userId,
+        set: {
+          state,
+          throughSeq: maxSeq,
+          updatedAt: sql`now()`,
+        },
+      });
+    await tx
+      .delete(workoutDocUpdates)
+      .where(
+        and(
+          eq(workoutDocUpdates.userId, uid),
+          lte(workoutDocUpdates.seq, maxSeq),
+        ),
+      );
+  });
 }
 
 async function pendingUpdateCount(uid: string): Promise<number> {
-  const r = await getPool().query<{ count: string }>(
-    `SELECT COUNT(*)::text AS count FROM workout_doc_updates u
-     WHERE u.user_id = $1 AND u.seq > COALESCE(
-       (SELECT through_seq FROM workout_doc_snapshots s WHERE s.user_id = $1),
-       0
-     )`,
-    [uid],
-  );
-  return Number(r.rows[0]?.count ?? 0);
+  const rows = await getDb()
+    .select({ count: sql<string>`COUNT(*)::text` })
+    .from(workoutDocUpdates)
+    .where(
+      and(
+        eq(workoutDocUpdates.userId, uid),
+        gt(
+          workoutDocUpdates.seq,
+          sql<number>`COALESCE((SELECT ${workoutDocSnapshots.throughSeq} FROM ${workoutDocSnapshots} WHERE ${workoutDocSnapshots.userId} = ${uid}), 0)`,
+        ),
+      ),
+    );
+  return Number(rows[0]?.count ?? 0);
 }
 
 export class WorkoutDoc {
