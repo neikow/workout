@@ -138,7 +138,9 @@ function EditorBody({
     {
       immediatelyRender: false,
       extensions: [
-        StarterKit.configure({ undoRedo: false }),
+        // Disable PM's built-in dropcursor — the exercise-handle plugin
+        // paints its own indicator and stacking both gives a white + blue line.
+        StarterKit.configure({ undoRedo: false, dropcursor: false }),
         WorkoutParser.configure({
           rules: defaultRules,
           initialContext: settings,
