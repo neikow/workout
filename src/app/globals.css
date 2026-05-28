@@ -518,6 +518,22 @@ dialog.settings-dialog[open]::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+.workout-editor .pr-trophy-wrap {
+  position: relative;
+  align-items: center;
+  color: var(--color-pr, #d6a93a);
+  vertical-align: -0.1em;
+  user-select: none;
+}
+
+.workout-editor .pr-trophy {
+  display: block;
+  position: absolute;
+  left: -1.5rem;
+  top: 40%;
+  transform: translateY(-50%);
+}
+
 .workout-editor p[data-kind="comment"] {
   color: var(--color-comment);
   font-style: italic;

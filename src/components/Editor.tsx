@@ -29,6 +29,7 @@ import {
   type ExerciseHandleEventDetail,
   ExerciseHandle,
 } from "./editor/exercise-handle";
+import { PrRecords, setPrRecordsSynonyms } from "./editor/pr-records";
 import {
   jumpToLastOccurrence,
   repeatLastSession,
@@ -150,6 +151,7 @@ function EditorBody({
         }),
         DayCard,
         ExerciseHandle,
+        PrRecords,
         Collaboration.configure({ document: bundle.ydoc }),
       ],
       editorProps: {
@@ -259,6 +261,11 @@ function EditorBody({
 
   const synonyms = useSynonyms(bundle.ydoc);
   const { menu, accept, cycle } = useAutocomplete(editor, settings, synonyms);
+
+  useEffect(() => {
+    if (!editor) return;
+    setPrRecordsSynonyms(editor.view, synonyms);
+  }, [editor, synonyms]);
 
   useEffect(() => {
     if (!editor) return;
