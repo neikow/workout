@@ -368,6 +368,10 @@ dialog.settings-dialog[open]::backdrop {
   letter-spacing: 0.01em;
 }
 
+.workout-editor p[data-kind="date"]:not(:first-of-type) {
+  margin-top: 2rem;
+}
+
 /* Day cards */
 .workout-editor .day-card-start,
 .workout-editor .day-card-only {
