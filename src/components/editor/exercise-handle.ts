@@ -3,6 +3,8 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
+import { GripVertical } from "lucide-react";
+import { lucideToHtml } from "@/lib/lucide-html";
 import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
@@ -14,6 +16,8 @@ import {
 function getParserKindMap(state: EditorState) {
   return getParserState(state)?.kindByPos;
 }
+
+const GRIP_HTML = lucideToHtml(GripVertical, { size: 14 });
 
 const key = new PluginKey<DecorationSet>("exerciseHandle");
 
@@ -176,11 +180,7 @@ function buildHandle(from: number, to: number): HTMLElement {
   btn.draggable = true;
   btn.tabIndex = -1;
   btn.setAttribute("aria-label", "Exercise actions");
-  btn.innerHTML =
-    '<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true" fill="currentColor">' +
-    '<circle cx="2" cy="3" r="1.2"/><circle cx="2" cy="8" r="1.2"/><circle cx="2" cy="13" r="1.2"/>' +
-    '<circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>' +
-    "</svg>";
+  btn.innerHTML = GRIP_HTML;
 
   // Don't preventDefault on mousedown — the browser needs the default mousedown
   // → dragstart sequence to actually fire dragstart. Stop propagation only so

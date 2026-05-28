@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import {
   fetchSessions,
   logout as apiLogout,
@@ -49,20 +50,7 @@ export function AccountModal({ open, onClose }: Props) {
       >
         <span className="settings-title">Account</span>
         <Button variant="icon" onClick={onClose} aria-label="Close">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden
-          >
-            <path
-              d="M3.5 3.5l9 9M12.5 3.5l-9 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <X size={16} strokeWidth={1.5} aria-hidden />
         </Button>
       </div>
 

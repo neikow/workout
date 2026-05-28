@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo } from "react";
 import type { Editor } from "@tiptap/react";
+import { Search, X } from "lucide-react";
 import {
   buildExerciseIndex,
   normalizeName,
@@ -87,34 +88,15 @@ export function SearchModal({ open, editor, onClose }: Props) {
       >
         <span className="settings-title">Search exercises</span>
         <Button variant="icon" onClick={onClose} aria-label="Close">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden
-          >
-            <path
-              d="M3.5 3.5l9 9M12.5 3.5l-9 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <X size={16} strokeWidth={1.5} aria-hidden />
         </Button>
       </div>
 
       <div style={{ padding: "0.75rem 1.25rem 0.5rem" }}>
         <div style={{ position: "relative" }}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <Search
+            size={14}
+            strokeWidth={1.75}
             aria-hidden
             style={{
               position: "absolute",
@@ -124,10 +106,7 @@ export function SearchModal({ open, editor, onClose }: Props) {
               color: "var(--color-text-muted)",
               pointerEvents: "none",
             }}
-          >
-            <circle cx="6.5" cy="6.5" r="5" />
-            <line x1="10.5" y1="10.5" x2="14" y2="14" />
-          </svg>
+          />
           <input
             ref={inputRef}
             type="text"

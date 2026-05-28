@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { MenuState } from "./use-autocomplete";
 
 interface Props {
@@ -115,19 +116,7 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
                   onCycle(-1);
                 }}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <polyline points="9 2 4 7 9 12" />
-                </svg>
+                <ChevronLeft size={14} strokeWidth={1.75} aria-hidden />
               </button>
               <span
                 style={{
@@ -151,19 +140,7 @@ export function SuggestionMenu({ menu, onAccept, onCycle }: Props) {
                   onCycle(1);
                 }}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <polyline points="5 2 10 7 5 12" />
-                </svg>
+                <ChevronRight size={14} strokeWidth={1.75} aria-hidden />
               </button>
             </div>
           )}

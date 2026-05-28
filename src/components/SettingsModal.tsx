@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import type * as Y from "yjs";
+import { Sun, X } from "lucide-react";
 import type { Theme, WorkoutContext } from "@/components/editor/types";
 import { updateSettings } from "@/lib/settings";
 import {
@@ -113,20 +114,7 @@ function SynonymsSection({ ydoc }: { ydoc: Y.Doc }) {
                 aria-label="Remove group"
                 onClick={() => removeSynonymGroup(ydoc, g.id)}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M3.5 3.5l9 9M12.5 3.5l-9 9"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <X size={16} strokeWidth={1.5} aria-hidden />
               </Button>
             </div>
             <Input
@@ -208,30 +196,24 @@ function ThemePreview({ theme }: { theme: ThemeOption }) {
       )}
       {isAuto && (
         <div className="theme-preview-auto">
+          <Sun
+            size={18}
+            strokeWidth={2}
+            stroke="url(#theme-auto-grad)"
+            aria-hidden
+          />
           <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="url(#auto-grad)"
-            strokeWidth="2"
-            strokeLinecap="round"
+            width="0"
+            height="0"
+            aria-hidden
+            style={{ position: "absolute" }}
           >
             <defs>
-              <linearGradient id="auto-grad" x1="0" y1="0" x2="1" y2="0">
+              <linearGradient id="theme-auto-grad" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#4338ca" />
                 <stop offset="100%" stopColor="#818cf8" />
               </linearGradient>
             </defs>
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
           </svg>
         </div>
       )}
@@ -293,20 +275,7 @@ export function SettingsModal({ open, settings, ydoc, onClose }: Props) {
       >
         <span className="settings-title">Settings</span>
         <Button variant="icon" onClick={onClose} aria-label="Close">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden
-          >
-            <path
-              d="M3.5 3.5l9 9M12.5 3.5l-9 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <X size={16} strokeWidth={1.5} aria-hidden />
         </Button>
       </div>
 
