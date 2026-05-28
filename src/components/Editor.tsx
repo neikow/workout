@@ -34,6 +34,8 @@ import { SuggestionMenu } from "./editor/autocomplete/SuggestionMenu";
 import { Toolbar } from "./Toolbar";
 import { SearchModal } from "./SearchModal";
 
+const WS_SYNC_TIMEOUT_MS = 4000;
+
 export function Editor() {
   const auth = useAuth();
 
@@ -146,7 +148,7 @@ function EditorBody({
     const seed = async () => {
       if (fragment.length > 0) return;
 
-      // 1. Legacy local IDB blob (pre-yjs storage on this device).
+      // Legacy local IDB blob (pre-yjs storage on this device).
       const legacyLocal = await loadLocalContent();
       if (cancelled) return;
       if (legacyLocal && legacyLocal.trim() && fragment.length === 0) {
@@ -155,11 +157,12 @@ function EditorBody({
         return;
       }
 
-      // 2. Legacy server blob — only relevant when authenticated and after
-      //    the WS provider has finished its initial sync (so we know the
-      //    server-side Y doc is genuinely empty before we seed).
+      // Legacy server blob — only relevant when authenticated and after the WS
+      // provider has finished its initial sync (so the server-side Y doc is
+      // genuinely empty before we seed). Bounded so we don't hang if the
+      // sidecar is unreachable.
       if (!isAuthenticated) return;
-      await bundle.whenWsSynced();
+      await bundle.whenWsSynced(WS_SYNC_TIMEOUT_MS);
       if (cancelled || fragment.length > 0) return;
 
       const cloud = await fetchWorkoutDocument().catch(() => null);
@@ -174,19 +177,25 @@ function EditorBody({
     };
   }, [editor, bundle, isAuthenticated]);
 
-  // Detect divergence between this device's prior guest content and the synced
-  // account doc. If both exist and differ, surface a resolution prompt rather
-  // than letting the CRDT silently merge two separate plans.
+  // Reconcile this device's prior guest content with the synced account doc.
+  // Empty cloud → migrate guest in. Same content → drop the guest copy.
+  // Divergence → surface a resolution prompt so the CRDT can't silently merge
+  // two separate plans. Runs only once the user IDB has loaded and the WS
+  // provider has either synced or timed out.
   useEffect(() => {
     if (!editor || !isAuthenticated) return;
     let cancelled = false;
     (async () => {
-      await bundle.whenWsSynced();
-      if (cancelled) return;
       const guestText = await readIdbDocText(GUEST_IDB_NAME);
       if (cancelled || !guestText.trim()) return;
+      await bundle.whenWsSynced(WS_SYNC_TIMEOUT_MS);
+      if (cancelled) return;
       const cloudText = docToText(bundle.ydoc);
-      if (!cloudText.trim()) return;
+      if (!cloudText.trim()) {
+        editor.commands.setContent(textToDoc(guestText), { emitUpdate: true });
+        await clearIdbDoc(GUEST_IDB_NAME);
+        return;
+      }
       if (sameContent(guestText, cloudText)) {
         await clearIdbDoc(GUEST_IDB_NAME);
         return;

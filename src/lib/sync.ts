@@ -42,8 +42,12 @@ export interface SyncBundle {
   readonly ws: WebsocketProvider | null;
   /** Resolves when WS provider is constructed (or null if guest / no URL). */
   readonly wsReady: Promise<WebsocketProvider | null>;
-  /** Resolves once the WS provider has completed initial sync (or null if no ws). */
-  whenWsSynced(): Promise<WebsocketProvider | null>;
+  /**
+   * Resolves once the WS provider has completed initial sync. Pass `timeoutMs`
+   * to bound the wait so callers don't hang when the sidecar is unreachable —
+   * the returned provider is `null` on timeout (and when no ws is configured).
+   */
+  whenWsSynced(timeoutMs?: number): Promise<WebsocketProvider | null>;
   destroy(): void;
 }
 
@@ -84,19 +88,27 @@ export function buildSync(opts: BuildSyncOpts): SyncBundle {
       return ws;
     },
     wsReady,
-    async whenWsSynced() {
+    async whenWsSynced(timeoutMs?: number) {
       const provider = await wsReady;
       if (!provider) return null;
       if (provider.synced) return provider;
-      await new Promise<void>((resolve) => {
+      const synced = await new Promise<boolean>((resolve) => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
         const onSync = (isSynced: boolean) => {
           if (!isSynced) return;
           provider.off("sync", onSync);
-          resolve();
+          if (timer) clearTimeout(timer);
+          resolve(true);
         };
         provider.on("sync", onSync);
+        if (timeoutMs != null) {
+          timer = setTimeout(() => {
+            provider.off("sync", onSync);
+            resolve(false);
+          }, timeoutMs);
+        }
       });
-      return provider;
+      return synced ? provider : null;
     },
     destroy: () => {
       cancelled = true;
