@@ -3,7 +3,7 @@ import type { EditorState } from "prosemirror-state";
 import { Fragment } from "prosemirror-model";
 import type { Schema } from "prosemirror-model";
 import { findGroupFor, normalizeName, type SynonymGroup } from "@/lib/synonyms";
-import { parserPluginKey } from "./workout-parser";
+import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
   collectDocItems,
@@ -63,7 +63,7 @@ export function findLastOccurrenceBlock(
   ctx: BlockContext,
   synonyms: SynonymGroup[],
 ): MatchResult | null {
-  const kindByPos = parserPluginKey.getState(state)?.kindByPos;
+  const kindByPos = getParserState(state)?.kindByPos;
   if (!kindByPos) return null;
   const items = collectDocItems(state.doc, kindByPos);
   const targetNorm = normalizeName(ctx.name);
@@ -142,7 +142,7 @@ export function repeatLastSession(
 
   const { state } = editor;
   const tr = state.tr;
-  const kindByPos = parserPluginKey.getState(state)?.kindByPos;
+  const kindByPos = getParserState(state)?.kindByPos;
   if (!kindByPos) return;
   const items = collectDocItems(state.doc, kindByPos);
 

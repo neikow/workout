@@ -45,15 +45,36 @@ function buildState(
   };
 }
 
+/**
+ * Read the parser's KindState from the editor state without depending on the
+ * exported `parserPluginKey`. Next dev (Turbopack) sometimes serves this
+ * module from two distinct chunks; the duplicate PluginKey instance doesn't
+ * match the one the registered plugin was built with, so its `getState()`
+ * silently returns undefined. Looking up the plugin by its name prefix is
+ * stable across duplication.
+ */
+export function getParserState(state: EditorState): KindState | null {
+  for (const p of state.plugins) {
+    const spec = (p as unknown as { spec?: { key?: { key?: string } } }).spec;
+    const k =
+      spec?.key?.key ?? (p as unknown as { key?: { key?: string } }).key?.key;
+    if (k && k.startsWith("workoutParser$")) {
+      const s = p.getState(state) as KindState | undefined;
+      if (s) return s;
+    }
+  }
+  return null;
+}
+
 export function getKindAt(state: EditorState, pos: number): LineKind | null {
-  const s = parserPluginKey.getState(state);
+  const s = getParserState(state);
   return s ? (s.kindByPos.get(pos) ?? null) : null;
 }
 
 export function getKindGetter(
   state: EditorState,
 ): (pos: number) => LineKind | null {
-  const s = parserPluginKey.getState(state);
+  const s = getParserState(state);
   return (pos) => (s ? (s.kindByPos.get(pos) ?? null) : null);
 }
 

@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/react";
-import type { EditorState } from "prosemirror-state";
+import { type EditorState, TextSelection } from "prosemirror-state";
 import { Fragment } from "prosemirror-model";
-import { parserPluginKey } from "./workout-parser";
+import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
   collectDocItems,
@@ -36,7 +36,7 @@ export function resolveBlockContext(
   state: EditorState,
   from: number,
 ): BlockContext | null {
-  const kindMap = parserPluginKey.getState(state)?.kindByPos;
+  const kindMap = getParserState(state)?.kindByPos;
   if (!kindMap) return null;
   const items = collectDocItems(state.doc, kindMap);
   const block = findExerciseBlock(items, from);
@@ -116,19 +116,23 @@ export async function copyBlockText(ctx: BlockContext): Promise<boolean> {
  * Insert a new empty exercise-name paragraph immediately before / after the
  * block. Caret lands inside the new paragraph so the user can start typing.
  */
-export function insertExerciseAbove(editor: Editor, ctx: BlockContext): void {
+function insertParagraphAt(editor: Editor, pos: number): void {
   const { state } = editor;
   const para = state.schema.nodes.paragraph!.createAndFill();
   if (!para) return;
-  editor.view.dispatch(state.tr.insert(ctx.block.from, para));
-  // Caret one past the open token so it lands inside the new paragraph.
-  editor.commands.focus(ctx.block.from + 1);
+  const tr = state.tr.insert(pos, para);
+  // pos + 1 lands the caret one past the new paragraph's open token, i.e.
+  // inside the empty paragraph rather than between siblings. Set selection
+  // *before* dispatching so the same transaction commits position + insert.
+  tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1)));
+  editor.view.dispatch(tr.scrollIntoView());
+  editor.view.focus();
+}
+
+export function insertExerciseAbove(editor: Editor, ctx: BlockContext): void {
+  insertParagraphAt(editor, ctx.block.from);
 }
 
 export function insertExerciseBelow(editor: Editor, ctx: BlockContext): void {
-  const { state } = editor;
-  const para = state.schema.nodes.paragraph!.createAndFill();
-  if (!para) return;
-  editor.view.dispatch(state.tr.insert(ctx.block.to, para));
-  editor.commands.focus(ctx.block.to + 1);
+  insertParagraphAt(editor, ctx.block.to);
 }

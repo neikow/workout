@@ -3,13 +3,17 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import { parserPluginKey } from "./workout-parser";
+import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
   collectDocItems,
   findDayBounds,
   findExerciseBlock,
 } from "./exercise-block";
+
+function getParserKindMap(state: EditorState) {
+  return getParserState(state)?.kindByPos;
+}
 
 const key = new PluginKey<DecorationSet>("exerciseHandle");
 
@@ -66,7 +70,7 @@ function findDropTarget(
 ): { block: BlockRange; position: "above" | "below"; dayFrom: number } | null {
   const coords = view.posAtCoords({ left: clientX, top: clientY });
   if (!coords) return null;
-  const kindByPos = parserPluginKey.getState(view.state)?.kindByPos;
+  const kindByPos = getParserKindMap(view.state);
   if (!kindByPos) return null;
   const items = collectDocItems(view.state.doc, kindByPos);
   const block = findExerciseBlock(items, coords.pos);
@@ -87,7 +91,7 @@ function isSameDay(
   sourceFrom: number,
   targetBlockFrom: number,
 ) {
-  const kindByPos = parserPluginKey.getState(view.state)?.kindByPos;
+  const kindByPos = getParserKindMap(view.state);
   if (!kindByPos) return false;
   const items = collectDocItems(view.state.doc, kindByPos);
   const sourceDay = findDayBounds(items, sourceFrom);
@@ -118,7 +122,7 @@ function performDrop(view: EditorView, drag: DragState) {
   const targetBlockFrom = drag.target.block.from;
   if (sourceFrom === targetBlockFrom) return;
 
-  const kindByPos = parserPluginKey.getState(view.state)?.kindByPos;
+  const kindByPos = getParserKindMap(view.state);
   if (!kindByPos) return;
   const items = collectDocItems(view.state.doc, kindByPos);
   const liveSource = findExerciseBlock(items, sourceFrom);
@@ -153,13 +157,16 @@ function buildHandle(from: number, to: number): HTMLElement {
   btn.tabIndex = -1;
   btn.setAttribute("aria-label", "Exercise actions");
   btn.innerHTML =
-    '<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true">' +
+    '<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true" fill="currentColor">' +
     '<circle cx="2" cy="3" r="1.2"/><circle cx="2" cy="8" r="1.2"/><circle cx="2" cy="13" r="1.2"/>' +
     '<circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>' +
     "</svg>";
 
+  // Don't preventDefault on mousedown — the browser needs the default mousedown
+  // → dragstart sequence to actually fire dragstart. Stop propagation only so
+  // PM doesn't reinterpret the click as a caret move into the widget.
   btn.addEventListener("mousedown", (e) => {
-    e.preventDefault();
+    e.stopPropagation();
   });
 
   btn.addEventListener("click", (e) => {
@@ -275,7 +282,7 @@ function buildHandle(from: number, to: number): HTMLElement {
 
 function buildDecorations(state: EditorState): DecorationSet {
   const doc = state.doc;
-  const kindMap = parserPluginKey.getState(state)?.kindByPos;
+  const kindMap = getParserKindMap(state);
   if (!kindMap) return DecorationSet.empty;
   const items = collectDocItems(doc, kindMap);
   const decos: Decoration[] = [];
@@ -314,21 +321,14 @@ export const ExerciseHandle = Extension.create({
             },
           };
         },
-        state: {
-          init(_, state) {
-            return buildDecorations(state);
-          },
-          apply(tr, old, oldState, newState) {
-            const parserChanged =
-              parserPluginKey.getState(oldState) !==
-              parserPluginKey.getState(newState);
-            if (!tr.docChanged && !parserChanged) return old;
-            return buildDecorations(newState);
-          },
-        },
+        // Decorations are derived on every read instead of cached in plugin
+        // state — the parser plugin's state is not reliably accessible from
+        // this plugin's apply() under Next dev (Turbopack chunking), so
+        // computing on-demand from `state` (which by the time decorations() is
+        // called has all plugin states populated) is the only stable path.
         props: {
           decorations(state) {
-            return key.getState(state);
+            return buildDecorations(state);
           },
           handleDOMEvents: {
             dragover(view, event) {
