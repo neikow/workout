@@ -7,7 +7,7 @@ import { getParserState } from "./workout-parser";
 import {
   type BlockRange,
   collectDocItems,
-  findDayBounds,
+  type DocItem,
   findExerciseBlock,
 } from "./exercise-block";
 
@@ -28,10 +28,26 @@ export interface ExerciseHandleEventDetail {
 const LONG_PRESS_MS = 380;
 const LONG_PRESS_TOLERANCE_PX = 10;
 
+/**
+ * A drop is only allowed at two kinds of slots:
+ *  - "block-below": directly after another exercise block (its full
+ *    range, including trailing set lines). The visual indicator hugs
+ *    the bottom of the block's last paragraph.
+ *  - "date-above": immediately before a date paragraph — i.e. at the
+ *    very end of the previous day. The indicator hugs the top of the
+ *    date row.
+ * Dropping "above a block" (would split a day mid-list) and "after a
+ * date" (would land between the day header and its first exercise)
+ * are both forbidden — they were too easy to trigger accidentally.
+ */
+type DropTarget =
+  | { kind: "block-below"; block: BlockRange; anchorFrom: number }
+  | { kind: "date-above"; dateFrom: number };
+
 interface DragState {
   source: { from: number; to: number };
   indicator: HTMLDivElement;
-  target: { block: BlockRange; position: "above" | "below" } | null;
+  target: DropTarget | null;
 }
 
 // Drag state is process-global and transient — only one drag can be active at
@@ -67,48 +83,41 @@ function findDropTarget(
   view: EditorView,
   clientX: number,
   clientY: number,
-): { block: BlockRange; position: "above" | "below"; dayFrom: number } | null {
+): DropTarget | null {
   const coords = view.posAtCoords({ left: clientX, top: clientY });
   if (!coords) return null;
   const kindByPos = getParserKindMap(view.state);
   if (!kindByPos) return null;
   const items = collectDocItems(view.state.doc, kindByPos);
-  const block = findExerciseBlock(items, coords.pos);
-  if (!block) return null;
-  const day = findDayBounds(items, block.from);
-  if (!day) return null;
-  const dom = view.nodeDOM(block.from);
-  let position: "above" | "below" = "below";
-  if (dom instanceof HTMLElement) {
-    const rect = dom.getBoundingClientRect();
-    position = clientY < rect.top + rect.height / 2 ? "above" : "below";
+  const idx = items.findIndex(
+    (it) => coords.pos >= it.from && coords.pos < it.to,
+  );
+  if (idx === -1) return null;
+  const item = items[idx]!;
+  if (item.kind === "date") {
+    return { kind: "date-above", dateFrom: item.from };
   }
-  return { block, position, dayFrom: day.from };
+  const block = findExerciseBlock(items, coords.pos);
+  if (!block) {
+    // The "after a date" gap (null-kind paragraph between a date and its
+    // first exercise) lands here — explicitly forbidden as a drop slot.
+    return null;
+  }
+  return {
+    kind: "block-below",
+    block,
+    anchorFrom: items[block.lastItemIndex]!.from,
+  };
 }
 
-function isSameDay(
-  view: EditorView,
-  sourceFrom: number,
-  targetBlockFrom: number,
-) {
-  const kindByPos = getParserKindMap(view.state);
-  if (!kindByPos) return false;
-  const items = collectDocItems(view.state.doc, kindByPos);
-  const sourceDay = findDayBounds(items, sourceFrom);
-  const targetDay = findDayBounds(items, targetBlockFrom);
-  return !!sourceDay && !!targetDay && sourceDay.from === targetDay.from;
-}
-
-function paintIndicator(
-  view: EditorView,
-  drag: DragState,
-  target: { block: BlockRange; position: "above" | "below" },
-) {
-  const dom = view.nodeDOM(target.block.from);
+function paintIndicator(view: EditorView, drag: DragState, target: DropTarget) {
+  const anchorPos =
+    target.kind === "date-above" ? target.dateFrom : target.anchorFrom;
+  const dom = view.nodeDOM(anchorPos);
   if (!(dom instanceof HTMLElement)) return;
   const rect = dom.getBoundingClientRect();
   const editorRect = view.dom.getBoundingClientRect();
-  const top = target.position === "above" ? rect.top - 1 : rect.bottom - 1;
+  const top = target.kind === "date-above" ? rect.top - 1 : rect.bottom - 1;
   drag.indicator.style.left = `${editorRect.left + 8}px`;
   drag.indicator.style.width = `${editorRect.width - 16}px`;
   drag.indicator.style.top = `${top}px`;
@@ -116,30 +125,41 @@ function paintIndicator(
   drag.target = target;
 }
 
+function isDropAllowed(
+  items: DocItem[],
+  liveSource: BlockRange,
+  target: DropTarget,
+): number | null {
+  // dropPos = where the source's slice would be inserted in the live doc.
+  // Returns null when the drop is a no-op (lands inside the source range
+  // itself) — those drops should silently do nothing.
+  const dropPos =
+    target.kind === "date-above" ? target.dateFrom : target.block.to;
+  if (target.kind === "block-below" && target.block.from === liveSource.from) {
+    return null;
+  }
+  if (dropPos >= liveSource.from && dropPos <= liveSource.to) return null;
+  // Hand back the items array so the caller doesn't recompute.
+  void items;
+  return dropPos;
+}
+
 function performDrop(view: EditorView, drag: DragState) {
   if (!drag.target) return;
-  const sourceFrom = drag.source.from;
-  const targetBlockFrom = drag.target.block.from;
-  if (sourceFrom === targetBlockFrom) return;
-
   const kindByPos = getParserKindMap(view.state);
   if (!kindByPos) return;
   const items = collectDocItems(view.state.doc, kindByPos);
-  const liveSource = findExerciseBlock(items, sourceFrom);
+  const liveSource = findExerciseBlock(items, drag.source.from);
   if (!liveSource) return;
-  const liveDay = findDayBounds(items, liveSource.from);
-  const targetDay = findDayBounds(items, targetBlockFrom);
-  if (!liveDay || !targetDay || liveDay.from !== targetDay.from) return;
 
-  const dropPos =
-    drag.target.position === "above"
-      ? drag.target.block.from
-      : drag.target.block.to;
-  if (dropPos > liveSource.from && dropPos < liveSource.to) return;
+  const dropPos = isDropAllowed(items, liveSource, drag.target);
+  if (dropPos === null) return;
 
   const sourceSlice = view.state.doc.slice(liveSource.from, liveSource.to);
   const tr = view.state.tr;
   tr.insert(dropPos, sourceSlice.content);
+  // The insert above shifted the source's range when the drop is earlier in
+  // the doc; account for that before deleting the original copy.
   const shift = dropPos <= liveSource.from ? sourceSlice.content.size : 0;
   tr.delete(liveSource.from + shift, liveSource.to + shift);
   view.dispatch(tr);
@@ -244,14 +264,8 @@ function buildHandle(from: number, to: number): HTMLElement {
       if (touchDragging && activeDrag && currentView) {
         e.preventDefault();
         const tgt = findDropTarget(currentView, t.clientX, t.clientY);
-        if (
-          tgt &&
-          isSameDay(currentView, activeDrag.source.from, tgt.block.from)
-        ) {
-          paintIndicator(currentView, activeDrag, {
-            block: tgt.block,
-            position: tgt.position,
-          });
+        if (tgt) {
+          paintIndicator(currentView, activeDrag, tgt);
         } else {
           activeDrag.target = null;
           activeDrag.indicator.style.display = "none";
@@ -335,15 +349,9 @@ export const ExerciseHandle = Extension.create({
               if (!activeDrag) return false;
               const e = event as DragEvent;
               const tgt = findDropTarget(view, e.clientX, e.clientY);
-              if (
-                tgt &&
-                isSameDay(view, activeDrag.source.from, tgt.block.from)
-              ) {
+              if (tgt) {
                 e.preventDefault();
-                paintIndicator(view, activeDrag, {
-                  block: tgt.block,
-                  position: tgt.position,
-                });
+                paintIndicator(view, activeDrag, tgt);
               } else {
                 activeDrag.target = null;
                 activeDrag.indicator.style.display = "none";
