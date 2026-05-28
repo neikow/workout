@@ -25,6 +25,18 @@ import { ConflictModal, type ConflictChoice } from "./ConflictModal";
 import { defaultRules } from "./editor/default-rules";
 import { DayCard } from "./editor/day-card";
 import {
+  EXERCISE_HANDLE_EVENT,
+  type ExerciseHandleEventDetail,
+  ExerciseHandle,
+} from "./editor/exercise-handle";
+import {
+  jumpToLastOccurrence,
+  repeatLastSession,
+} from "./editor/exercise-history";
+import type { BlockContext } from "./editor/exercise-actions";
+import { ExerciseMenu } from "./ExerciseMenu";
+import { SynonymPickerModal } from "./SynonymPickerModal";
+import {
   CONTEXT_META,
   WorkoutParser,
   parserPluginKey,
@@ -116,6 +128,11 @@ function EditorBody({
     local: string;
     cloud: string;
   } | null>(null);
+  const [menuOpen, setMenuOpen] = useState<{
+    blockFrom: number;
+    anchorRect: DOMRect;
+  } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState<string | null>(null);
 
   const editor = useEditor(
     {
@@ -127,6 +144,7 @@ function EditorBody({
           initialContext: settings,
         }),
         DayCard,
+        ExerciseHandle,
         Collaboration.configure({ document: bundle.ydoc }),
       ],
       editorProps: {
@@ -237,6 +255,37 @@ function EditorBody({
   const synonyms = useSynonyms(bundle.ydoc);
   const { menu, accept, cycle } = useAutocomplete(editor, settings, synonyms);
 
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onHandle = (e: Event) => {
+      const detail = (e as CustomEvent<ExerciseHandleEventDetail>).detail;
+      setMenuOpen({ blockFrom: detail.from, anchorRect: detail.anchorRect });
+    };
+    dom.addEventListener(EXERCISE_HANDLE_EVENT, onHandle);
+    return () => dom.removeEventListener(EXERCISE_HANDLE_EVENT, onHandle);
+  }, [editor]);
+
+  const onAddSynonym = useCallback((ctx: BlockContext) => {
+    setPickerOpen(ctx.name);
+  }, []);
+
+  const onJumpLast = useCallback(
+    (ctx: BlockContext) => {
+      if (!editor) return;
+      jumpToLastOccurrence(editor, ctx, synonyms);
+    },
+    [editor, synonyms],
+  );
+
+  const onRepeatLast = useCallback(
+    (ctx: BlockContext) => {
+      if (!editor) return;
+      repeatLastSession(editor, ctx, synonyms, settings.dateFormat);
+    },
+    [editor, synonyms, settings.dateFormat],
+  );
+
   if (!editor) return <EditorShell loading />;
 
   return (
@@ -269,6 +318,23 @@ function EditorBody({
         open={searchOpen}
         editor={editor}
         onClose={() => setSearchOpen(false)}
+      />
+      <ExerciseMenu
+        editor={editor}
+        synonyms={synonyms}
+        open={menuOpen}
+        onClose={() => setMenuOpen(null)}
+        onAddSynonym={onAddSynonym}
+        onJumpLast={onJumpLast}
+        onRepeatLast={onRepeatLast}
+      />
+      <SynonymPickerModal
+        key={pickerOpen ?? "closed"}
+        open={pickerOpen !== null}
+        variant={pickerOpen ?? ""}
+        groups={synonyms}
+        ydoc={bundle.ydoc}
+        onClose={() => setPickerOpen(null)}
       />
     </>
   );
