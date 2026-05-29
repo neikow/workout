@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import type { Editor } from "@tiptap/react";
 import type * as Y from "yjs";
 import { Search, Settings, UserRound } from "lucide-react";
 import type { WorkoutContext } from "@/components/editor/types";
 import { SettingsModal } from "./SettingsModal";
-import { AccountModal } from "./AccountModal";
 import { Button } from "./ui/Button";
 import { useAuth } from "@/lib/auth-provider";
 
@@ -43,7 +43,6 @@ interface Props {
 export function Toolbar({ editor, settings, ydoc, onSearchOpen }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   const auth = useAuth();
 
   function handleNew() {
@@ -101,11 +100,7 @@ export function Toolbar({ editor, settings, ydoc, onSearchOpen }: Props) {
           aria-hidden
         />
 
-        <Button
-          variant="icon"
-          onClick={() => setAccountOpen(true)}
-          aria-label="Account"
-        >
+        <Link href="/profile" className="btn btn-icon" aria-label="Profile">
           <span style={{ position: "relative", display: "inline-flex" }}>
             <UserRound size={16} strokeWidth={1.75} aria-hidden />
             {auth.status === "authenticated" && (
@@ -124,7 +119,7 @@ export function Toolbar({ editor, settings, ydoc, onSearchOpen }: Props) {
               />
             )}
           </span>
-        </Button>
+        </Link>
 
         <Button
           variant="icon"
@@ -141,7 +136,6 @@ export function Toolbar({ editor, settings, ydoc, onSearchOpen }: Props) {
         ydoc={ydoc}
         onClose={() => setSettingsOpen(false)}
       />
-      <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </>
   );
 }

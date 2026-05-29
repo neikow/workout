@@ -17,8 +17,6 @@ function getParserKindMap(state: EditorState) {
   return getParserState(state)?.kindByPos;
 }
 
-const GRIP_HTML = lucideToHtml(GripVertical, { size: 14 });
-
 const key = new PluginKey<DecorationSet>("exerciseHandle");
 
 export const EXERCISE_HANDLE_EVENT = "workout:exercise-handle";
@@ -180,7 +178,9 @@ function buildHandle(from: number, to: number): HTMLElement {
   btn.draggable = true;
   btn.tabIndex = -1;
   btn.setAttribute("aria-label", "Exercise actions");
-  btn.innerHTML = GRIP_HTML;
+  // Rendered lazily, client-side only — calling renderToStaticMarkup at module
+  // load runs during SSR import and throws an invalid-hook-call. Cached per icon.
+  btn.innerHTML = lucideToHtml(GripVertical, { size: 14 });
 
   // Don't preventDefault on mousedown — the browser needs the default mousedown
   // → dragstart sequence to actually fire dragstart. Stop propagation only so

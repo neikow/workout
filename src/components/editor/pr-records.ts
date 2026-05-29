@@ -10,8 +10,6 @@ import { getParserState } from "./workout-parser";
 import { collectDocItems } from "./exercise-block";
 import { parseSetLine } from "./set-parser";
 
-const TROPHY_HTML = lucideToHtml(Trophy, { size: 14 });
-
 const key = new PluginKey<DecorationSet>("prRecords");
 
 // Module-scoped synonyms reference. The plugin reads from this on every
@@ -50,7 +48,8 @@ function buildTrophyDom(): HTMLElement {
   wrap.contentEditable = "false";
   wrap.setAttribute("aria-label", "Personal record");
   wrap.title = "Personal record";
-  wrap.innerHTML = TROPHY_HTML;
+  // Lazy + client-only: see note in exercise-handle.ts. Cached per icon.
+  wrap.innerHTML = lucideToHtml(Trophy, { size: 14 });
   return wrap;
 }
 

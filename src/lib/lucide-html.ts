@@ -18,6 +18,11 @@ interface IconOpts {
 const cache = new WeakMap<LucideIcon, Map<string, string>>();
 
 export function lucideToHtml(Icon: LucideIcon, opts: IconOpts = {}): string {
+  // Client-only: renderToStaticMarkup during SSR import throws an
+  // invalid-hook-call under Turbopack. These icons only feed ProseMirror
+  // widgets, which build their DOM in the browser, so the server never needs a
+  // real string.
+  if (typeof window === "undefined") return "";
   let perIcon = cache.get(Icon);
   if (!perIcon) {
     perIcon = new Map();

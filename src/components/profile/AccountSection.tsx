@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
 import {
   fetchSessions,
   logout as apiLogout,
@@ -11,67 +10,32 @@ import {
   verifyOtp,
 } from "@/lib/auth-client";
 import { useAuth, useInvalidateAuth } from "@/lib/auth-provider";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-}
-
-export function AccountModal({ open, onClose }: Props) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    if (open) el.showModal();
-    else if (el.open) el.close();
-  }, [open]);
-
-  function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
-    if (e.target === dialogRef.current) onClose();
-  }
-
+/**
+ * Account panel for the profile page. Holds the sign-in flow, active sessions,
+ * and sign-out — the content that used to live in the account modal.
+ */
+export function AccountSection() {
   const auth = useAuth();
-
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      onClick={handleBackdropClick}
-      className="settings-dialog"
-    >
-      <div
-        className="settings-header"
-        style={{
-          borderBottom: "1px solid var(--color-border)",
-          color: "var(--color-text)",
-        }}
-      >
-        <span className="settings-title">Account</span>
-        <Button variant="icon" onClick={onClose} aria-label="Close">
-          <X size={16} strokeWidth={1.5} aria-hidden />
-        </Button>
-      </div>
-
-      <div className="settings-body">
-        {auth.status === "loading" && (
-          <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-            Loading…
-          </p>
-        )}
-        {auth.status === "guest" && <LoginPanel onClose={onClose} />}
-        {auth.status === "authenticated" && (
-          <AuthenticatedPanel email={auth.user.email} onClose={onClose} />
-        )}
-      </div>
-    </dialog>
+    <section className="profile-section">
+      <h2 className="profile-section-title">Account</h2>
+      {auth.status === "loading" && (
+        <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Loading…</p>
+      )}
+      {auth.status === "guest" && <LoginPanel />}
+      {auth.status === "authenticated" && (
+        <AuthenticatedPanel email={auth.user.email} />
+      )}
+    </section>
   );
 }
 
 type LoginStep = "email" | "code";
 
-function LoginPanel({ onClose }: { onClose: () => void }) {
+function LoginPanel() {
   const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -92,7 +56,6 @@ function LoginPanel({ onClose }: { onClose: () => void }) {
       verifyOtp(email, code),
     onSuccess: async () => {
       await invalidateAuth();
-      onClose();
     },
     onError: (e: Error) => setError(humanizeError(e.message)),
   });
@@ -203,13 +166,7 @@ function LoginPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function AuthenticatedPanel({
-  email,
-  onClose,
-}: {
-  email: string;
-  onClose: () => void;
-}) {
+function AuthenticatedPanel({ email }: { email: string }) {
   const invalidateAuth = useInvalidateAuth();
   const qc = useQueryClient();
   const sessions = useQuery({
@@ -230,7 +187,6 @@ function AuthenticatedPanel({
     onSuccess: async () => {
       await invalidateAuth();
       await qc.invalidateQueries({ queryKey: ["workouts"] });
-      onClose();
     },
   });
 

@@ -911,3 +911,195 @@ dialog.settings-dialog[open]::backdrop {
   overflow-x: auto;
   white-space: pre;
 }
+
+/* ── Profile + statistics ── */
+.profile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile-section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.stats-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.stats-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stats-select {
+  width: 100%;
+  appearance: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.9375rem;
+}
+
+.stats-prs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.stats-pr {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-pr b {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.stats-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stats-metric-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.stats-metric-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  cursor: pointer;
+}
+
+.stats-metric-btn + .stats-metric-btn {
+  border-left: 1px solid var(--color-border);
+}
+
+.stats-metric-btn:hover {
+  background: var(--color-ghost-hover);
+}
+
+.stats-metric-btn.active {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.sparkline {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sparkline-empty {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.stats-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-session {
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.stats-session:first-child {
+  border-top: 0;
+}
+
+.stats-session-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.stats-date {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-date);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-badges {
+  display: flex;
+  gap: 0.375rem;
+  flex: 1;
+}
+
+.stats-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.stats-metric-val {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.stats-sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.625rem;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-working-set);
+}
+
+.stats-set.warmup {
+  color: var(--color-warmup-set);
+}
+
+.stats-set.flagged {
+  color: oklch(58% 0.22 25);
+}
+
+.stats-meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
