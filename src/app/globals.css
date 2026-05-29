@@ -539,6 +539,31 @@ dialog.settings-dialog[open]::backdrop {
   font-style: italic;
 }
 
+/* Circuits — a header plus its dash-led items, bound by a left accent rail and
+   a faint tint so the grouped block reads as one unit. */
+.workout-editor p[data-kind="circuit"] {
+  color: var(--color-exercise);
+  font-weight: 700;
+  margin-top: 0.75rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.625rem;
+  border-left: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.workout-editor p[data-kind="circuit-item"] {
+  color: var(--color-working-set);
+  font-variant-numeric: tabular-nums;
+  padding: 0 0.5rem 0 0.625rem;
+  border-left: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+/* Round the rail at the bottom of the last item in a run. */
+.workout-editor p[data-kind="circuit-item"]:not(:has(+ p[data-kind="circuit-item"])) {
+  padding-bottom: 0.25rem;
+  border-bottom-left-radius: 0.25rem;
+}
+
 .workout-editor hr {
   border: 0;
   margin: 0;
@@ -877,6 +902,8 @@ dialog.settings-dialog[open]::backdrop {
 .debug-kind-working-set { color: var(--color-working-set); }
 .debug-kind-warmup-set { color: var(--color-warmup-set); }
 .debug-kind-comment { color: var(--color-comment); }
+.debug-kind-circuit { color: var(--color-accent); }
+.debug-kind-circuit-item { color: var(--color-accent); }
 
 .debug-line {
   font-size: 0.875rem;

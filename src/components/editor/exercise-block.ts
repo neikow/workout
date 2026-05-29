@@ -72,7 +72,8 @@ export function findExerciseBlock(
   while (startIdx >= 0) {
     const k = items[startIdx]!.kind;
     if (k === "exercise") break;
-    if (k === "date" || k === "hr") return null;
+    // A circuit is its own grouped block, never part of an exercise.
+    if (k === "date" || k === "hr" || k === "circuit") return null;
     startIdx--;
   }
   if (startIdx < 0) return null;
@@ -80,7 +81,8 @@ export function findExerciseBlock(
   let endIdx = startIdx;
   for (let i = startIdx + 1; i < items.length; i++) {
     const k = items[i]!.kind;
-    if (k === "exercise" || k === "date" || k === "hr") break;
+    if (k === "exercise" || k === "date" || k === "hr" || k === "circuit")
+      break;
     endIdx = i;
   }
 

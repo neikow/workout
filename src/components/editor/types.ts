@@ -3,7 +3,9 @@ export type LineKind =
   | "exercise"
   | "working-set"
   | "warmup-set"
-  | "comment";
+  | "comment"
+  | "circuit"
+  | "circuit-item";
 
 export type Theme = "system" | "light" | "dark" | "monokai";
 

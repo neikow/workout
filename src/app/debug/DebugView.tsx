@@ -23,6 +23,10 @@ const SAMPLE = [
   "100kg x 20 x 3 (fin de séance)",
   "30kg x 10 ???",
   "' dur dans les épaules",
+  "Circuit Abdos (x2)",
+  "- 10 levés de genoux collés",
+  "- 10 levés de jambes",
+  "- 5 x 2 levés de genoux",
 ].join("\n");
 
 interface Row {

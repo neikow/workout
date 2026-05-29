@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  circuitItemRule,
+  circuitRule,
   classifyLine,
   commentRule,
   dateRule,
@@ -108,6 +110,40 @@ describe("warmupSetRule", () => {
   });
 });
 
+describe("circuitRule", () => {
+  it("matches a circuit header, case-insensitively", () => {
+    expect(circuitRule.match("Circuit Abdos (x2)", ctx)).toBe("circuit");
+    expect(circuitRule.match("circuit jambes", ctx)).toBe("circuit");
+    expect(circuitRule.match("  Circuit core", ctx)).toBe("circuit");
+  });
+
+  it("rejects non-circuit lines", () => {
+    expect(circuitRule.match("squat", ctx)).toBeNull();
+    expect(circuitRule.match("circuitry drills", ctx)).toBeNull(); // \b after "circuit"
+    expect(circuitRule.match("- 10 levés", ctx)).toBeNull();
+  });
+});
+
+describe("circuitItemRule", () => {
+  it("matches dash-led items", () => {
+    expect(circuitItemRule.match("- 10 levés de genoux", ctx)).toBe(
+      "circuit-item",
+    );
+    expect(circuitItemRule.match("- 5 x 2 levés de genoux", ctx)).toBe(
+      "circuit-item",
+    );
+    expect(circuitItemRule.match("  - indented item", ctx)).toBe(
+      "circuit-item",
+    );
+  });
+
+  it("does not swallow assisted sets or the day separator", () => {
+    expect(circuitItemRule.match("-9kg x 10", ctx)).toBeNull();
+    expect(circuitItemRule.match("---", ctx)).toBeNull();
+    expect(circuitItemRule.match("-", ctx)).toBeNull();
+  });
+});
+
 describe("exerciseNameRule", () => {
   it("matches any non-empty text", () => {
     expect(exerciseNameRule.match("squat", ctx)).toBe("exercise");
@@ -156,6 +192,23 @@ describe("classifyLine (full pipeline)", () => {
 
   it("falls through to exercise", () => {
     expect(classifyLine("front squat", sorted, ctx)).toBe("exercise");
+  });
+
+  it("classifies a circuit header over exercise", () => {
+    expect(classifyLine("Circuit Abdos (x2)", sorted, ctx)).toBe("circuit");
+  });
+
+  it("classifies circuit items over working-set", () => {
+    expect(classifyLine("- 10 levés de genoux", sorted, ctx)).toBe(
+      "circuit-item",
+    );
+    expect(classifyLine("- 5 x 2 levés de genoux", sorted, ctx)).toBe(
+      "circuit-item",
+    );
+  });
+
+  it("keeps assisted working-sets out of circuit items", () => {
+    expect(classifyLine("-9kg x 10", sorted, ctx)).toBe("working-set");
   });
 
   it("returns null on empty line", () => {

@@ -34,6 +34,27 @@ export const commentRule: WorkoutRule = {
   },
 };
 
+// A circuit header opens a grouped block, e.g. "Circuit Abdos (x2)". The
+// trailing "(xN)" round count is optional and purely cosmetic.
+export const circuitRule: WorkoutRule = {
+  name: "circuit",
+  priority: 50,
+  match(text) {
+    return /^\s*circuit\b/i.test(text) ? "circuit" : null;
+  },
+};
+
+// A circuit item is a dash-led line beneath a header, e.g. "- 10 levés de
+// genoux" or "- 5 x 2 levés". Requires whitespace after the dash so assisted
+// sets ("-9kg x 10") stay working-sets and the "---" day separator is excluded.
+export const circuitItemRule: WorkoutRule = {
+  name: "circuit-item",
+  priority: 65,
+  match(text) {
+    return /^\s*-\s+\S/.test(text) ? "circuit-item" : null;
+  },
+};
+
 export const warmupSetRule: WorkoutRule = {
   name: "warmup-set",
   priority: 70,
@@ -65,8 +86,10 @@ export const exerciseNameRule: WorkoutRule = {
 export const defaultRules: WorkoutRule[] = [
   dateRule,
   commentRule,
+  circuitItemRule,
   warmupSetRule,
   workingSetRule,
+  circuitRule,
   exerciseNameRule,
 ];
 
