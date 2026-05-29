@@ -86,11 +86,13 @@ export function StatsSection({ ydoc }: { ydoc: Y.Doc }) {
               onChange={(e) => setSelectedKey(e.target.value)}
               aria-label="Exercise"
             >
-              {exercises.map((e) => (
-                <option key={e.key} value={e.key}>
-                  {e.displayName} · {e.sessionCount}
-                </option>
-              ))}
+              {exercises
+                .toSorted((a, b) => b.sessionCount - a.sessionCount)
+                .map((e) => (
+                  <option key={e.key} value={e.key}>
+                    {e.displayName} · {e.sessionCount}
+                  </option>
+                ))}
             </select>
           </div>
 

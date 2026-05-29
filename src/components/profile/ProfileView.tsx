@@ -27,7 +27,6 @@ export function ProfileView() {
       </header>
 
       <div className="profile-body">
-        <AccountSection />
         {synced.status === "ready" ? (
           <StatsSection ydoc={synced.bundle.ydoc} />
         ) : (
@@ -36,6 +35,7 @@ export function ProfileView() {
             <p className="stats-muted">Loading your document…</p>
           </section>
         )}
+        <AccountSection />
       </div>
     </>
   );
