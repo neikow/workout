@@ -80,7 +80,3 @@ export function ThemeApplier() {
   }, [theme]);
   return null;
 }
-
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  return children;
-}

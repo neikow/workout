@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { SettingsProvider, ThemeApplier } from "@/lib/settings";
+import { ThemeApplier } from "@/lib/settings";
 import { AuthProvider } from "@/lib/auth-provider";
 import "./globals.css";
 
@@ -45,10 +45,8 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <SettingsProvider>
-            <ThemeApplier />
-            {children}
-          </SettingsProvider>
+          <ThemeApplier />
+          {children}
         </AuthProvider>
       </body>
     </html>

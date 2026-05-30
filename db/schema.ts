@@ -74,16 +74,6 @@ export const sessions = pgTable(
   (t) => [index("sessions_user_id_idx").on(t.userId)],
 );
 
-export const workoutDocuments = pgTable("workout_documents", {
-  userId: uuid("user_id")
-    .primaryKey()
-    .references(() => users.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
 export const workoutDocSnapshots = pgTable("workout_doc_snapshots", {
   userId: uuid("user_id")
     .primaryKey()
@@ -116,6 +106,5 @@ export const workoutDocUpdates = pgTable(
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type OtpCode = typeof otpCodes.$inferSelect;
-export type WorkoutDocument = typeof workoutDocuments.$inferSelect;
 export type WorkoutDocSnapshot = typeof workoutDocSnapshots.$inferSelect;
 export type WorkoutDocUpdate = typeof workoutDocUpdates.$inferSelect;

@@ -80,10 +80,3 @@ export async function revokeSession(id: string): Promise<void> {
     }),
   );
 }
-
-export async function fetchWorkoutDocument(): Promise<{
-  content: string;
-  updatedAt: string | null;
-}> {
-  return asJson(await fetch("/api/workouts", { credentials: "same-origin" }));
-}

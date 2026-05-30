@@ -1,65 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Collaboration from "@tiptap/extension-collaboration";
+import { useState } from "react";
+import { EditorContent } from "@tiptap/react";
 import { useSettings } from "@/lib/settings";
-import { useAuth } from "@/lib/auth-provider";
-import { type SyncBundle } from "@/lib/sync";
-import { useSyncStore } from "@/lib/sync-store";
-import { fetchWorkoutDocument } from "@/lib/auth-client";
-import { clearLocalContent, loadLocalContent } from "@/lib/storage";
+import { useSyncedBundle } from "@/lib/use-synced-bundle";
 import { useSynonyms } from "@/lib/synonyms";
-import {
-  GUEST_IDB_NAME,
-  clearIdbDoc,
-  docToText,
-  readIdbDocText,
-  sameContent,
-  textToDoc,
-} from "@/lib/ydoc-text";
-import { mergeWorkoutText } from "@/lib/merge-workouts";
-import { compileDateFormat } from "./editor/date-format";
-import { ConflictModal, type ConflictChoice } from "./ConflictModal";
-import { defaultRules } from "./editor/default-rules";
-import { DayCard } from "./editor/day-card";
-import {
-  EXERCISE_HANDLE_EVENT,
-  type ExerciseHandleEventDetail,
-  ExerciseHandle,
-} from "./editor/exercise-handle";
-import { PrRecords, setPrRecordsSynonyms } from "./editor/pr-records";
-import {
-  jumpToLastOccurrence,
-  repeatLastSession,
-} from "./editor/exercise-history";
-import type { BlockContext } from "./editor/exercise-actions";
+import { useIsTouchDevice } from "@/lib/use-touch-device";
+import type { SyncBundle } from "@/lib/sync";
+import { ConflictModal } from "./ConflictModal";
 import { ExerciseMenu } from "./ExerciseMenu";
 import { ExerciseBottomSheet } from "./ExerciseBottomSheet";
 import { SynonymPickerModal } from "./SynonymPickerModal";
-import { useIsTouchDevice } from "@/lib/use-touch-device";
-import {
-  CONTEXT_META,
-  WorkoutParser,
-  parserPluginKey,
-} from "./editor/workout-parser";
-import { useAutocomplete } from "./editor/autocomplete/use-autocomplete";
-import { SuggestionMenu } from "./editor/autocomplete/SuggestionMenu";
 import { Toolbar } from "./Toolbar";
 import { SearchModal } from "./SearchModal";
-
-const WS_SYNC_TIMEOUT_MS = 4000;
+import { SuggestionMenu } from "./editor/autocomplete/SuggestionMenu";
+import { useAutocomplete } from "./editor/autocomplete/use-autocomplete";
+import { useWorkoutEditor } from "./editor/use-workout-editor";
+import { useExerciseMenu } from "./editor/use-exercise-menu";
+import { useDocumentBootstrap } from "./editor/use-document-bootstrap";
 
 export function Editor() {
-  const auth = useAuth();
+  const synced = useSyncedBundle();
+  if (synced.status === "loading") return <EditorShell loading />;
+  return (
+    <EditorBody
+      bundle={synced.bundle}
+      isAuthenticated={synced.isAuthenticated}
+    />
+  );
+}
 
-  if (auth.status === "loading") {
-    return <EditorShell loading />;
-  }
-
-  const userId = auth.status === "authenticated" ? auth.user.id : null;
-  return <EditorHost userId={userId} isAuthenticated={userId !== null} />;
+function EditorHeader({ children }: { children?: React.ReactNode }) {
+  return (
+    <header
+      className="editor-header"
+      style={{
+        background: "var(--color-header-bg)",
+        borderBottom: "1px solid var(--color-border)",
+      }}
+    >
+      <h1>Workout</h1>
+      {children}
+    </header>
+  );
 }
 
 function EditorShell({
@@ -71,15 +54,7 @@ function EditorShell({
 }) {
   return (
     <>
-      <header
-        className="editor-header"
-        style={{
-          background: "var(--color-header-bg)",
-          borderBottom: "1px solid var(--color-border)",
-        }}
-      >
-        <h1>Workout</h1>
-      </header>
+      <EditorHeader />
       {loading ? (
         <div
           style={{
@@ -97,27 +72,6 @@ function EditorShell({
   );
 }
 
-function EditorHost({
-  userId,
-  isAuthenticated,
-}: {
-  userId: string | null;
-  isAuthenticated: boolean;
-}) {
-  const { bundle, idbSynced, currentUserId, transition } = useSyncStore();
-
-  useEffect(() => {
-    if (currentUserId !== userId) {
-      transition(userId);
-    }
-  }, [userId, currentUserId, transition]);
-
-  if (!bundle || !idbSynced || currentUserId !== userId) {
-    return <EditorShell loading />;
-  }
-  return <EditorBody bundle={bundle} isAuthenticated={isAuthenticated} />;
-}
-
 function EditorBody({
   bundle,
   isAuthenticated,
@@ -128,195 +82,31 @@ function EditorBody({
   const settings = useSettings();
   const isTouch = useIsTouchDevice();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [conflict, setConflict] = useState<{
-    local: string;
-    cloud: string;
-  } | null>(null);
-  const [menuOpen, setMenuOpen] = useState<{
-    blockFrom: number;
-    anchorRect: DOMRect;
-  } | null>(null);
-  const [pickerOpen, setPickerOpen] = useState<string | null>(null);
 
-  const editor = useEditor(
-    {
-      immediatelyRender: false,
-      extensions: [
-        // Disable PM's built-in dropcursor — the exercise-handle plugin
-        // paints its own indicator and stacking both gives a white + blue line.
-        StarterKit.configure({ undoRedo: false, dropcursor: false }),
-        WorkoutParser.configure({
-          rules: defaultRules,
-          initialContext: settings,
-        }),
-        DayCard,
-        ExerciseHandle,
-        PrRecords,
-        Collaboration.configure({ document: bundle.ydoc }),
-      ],
-      editorProps: {
-        attributes: {
-          class: "workout-editor",
-          spellcheck: "false",
-          autocapitalize: "off",
-        },
-      },
-    },
-    [bundle],
-  );
-
-  useEffect(() => {
-    if (!editor) return;
-    const fragment = bundle.ydoc.getXmlFragment("default");
-    let cancelled = false;
-
-    const seed = async () => {
-      if (fragment.length > 0) return;
-
-      // Legacy local IDB blob (pre-yjs storage on this device).
-      const legacyLocal = await loadLocalContent();
-      if (cancelled) return;
-      if (legacyLocal && legacyLocal.trim() && fragment.length === 0) {
-        editor.commands.setContent(legacyLocal, { emitUpdate: true });
-        void clearLocalContent();
-        return;
-      }
-
-      // Legacy server blob — only relevant when authenticated and after the WS
-      // provider has finished its initial sync (so the server-side Y doc is
-      // genuinely empty before we seed). Bounded so we don't hang if the
-      // sidecar is unreachable.
-      if (!isAuthenticated) return;
-      await bundle.whenWsSynced(WS_SYNC_TIMEOUT_MS);
-      if (cancelled || fragment.length > 0) return;
-
-      const cloud = await fetchWorkoutDocument().catch(() => null);
-      if (cancelled || !cloud || !cloud.content.trim()) return;
-      if (fragment.length > 0) return;
-      editor.commands.setContent(cloud.content, { emitUpdate: true });
-    };
-
-    void seed();
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, bundle, isAuthenticated]);
-
-  // Reconcile this device's prior guest content with the synced account doc.
-  // Empty cloud → migrate guest in. Same content → drop the guest copy.
-  // Divergence → surface a resolution prompt so the CRDT can't silently merge
-  // two separate plans. Runs only once the user IDB has loaded and the WS
-  // provider has either synced or timed out.
-  useEffect(() => {
-    if (!editor || !isAuthenticated) return;
-    let cancelled = false;
-    (async () => {
-      const guestText = await readIdbDocText(GUEST_IDB_NAME);
-      if (cancelled || !guestText.trim()) return;
-      await bundle.whenWsSynced(WS_SYNC_TIMEOUT_MS);
-      if (cancelled) return;
-      const cloudText = docToText(bundle.ydoc);
-      if (!cloudText.trim()) {
-        editor.commands.setContent(textToDoc(guestText), { emitUpdate: true });
-        await clearIdbDoc(GUEST_IDB_NAME);
-        return;
-      }
-      if (sameContent(guestText, cloudText)) {
-        await clearIdbDoc(GUEST_IDB_NAME);
-        return;
-      }
-      if (!cancelled) setConflict({ local: guestText, cloud: cloudText });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, bundle, isAuthenticated]);
-
-  useEffect(() => {
-    if (!editor) return;
-    const current = parserPluginKey.getState(editor.state);
-    if (current?.ctx === settings) return;
-    editor.view.dispatch(editor.state.tr.setMeta(CONTEXT_META, settings));
-  }, [editor, settings]);
-
-  const resolveConflict = useCallback(
-    async (choice: ConflictChoice) => {
-      if (!editor || !conflict) return;
-      if (choice === "local") {
-        editor.commands.setContent(textToDoc(conflict.local), {
-          emitUpdate: true,
-        });
-      } else if (choice === "merge") {
-        const re = compileDateFormat(settings.dateFormat);
-        const merged = mergeWorkoutText(conflict.local, conflict.cloud, (l) =>
-          re.test(l.trim()),
-        );
-        editor.commands.setContent(textToDoc(merged), { emitUpdate: true });
-      }
-      await clearIdbDoc(GUEST_IDB_NAME);
-      setConflict(null);
-    },
-    [editor, conflict, settings.dateFormat],
+  const editor = useWorkoutEditor(bundle, settings);
+  const { conflict, resolveConflict } = useDocumentBootstrap(
+    editor,
+    bundle,
+    isAuthenticated,
+    settings.dateFormat,
   );
 
   const synonyms = useSynonyms(bundle.ydoc);
   const { menu, accept, cycle } = useAutocomplete(editor, settings, synonyms);
-
-  useEffect(() => {
-    if (!editor) return;
-    setPrRecordsSynonyms(editor.view, synonyms);
-  }, [editor, synonyms]);
-
-  useEffect(() => {
-    if (!editor) return;
-    const dom = editor.view.dom;
-    const onHandle = (e: Event) => {
-      const detail = (e as CustomEvent<ExerciseHandleEventDetail>).detail;
-      setMenuOpen({ blockFrom: detail.from, anchorRect: detail.anchorRect });
-    };
-    dom.addEventListener(EXERCISE_HANDLE_EVENT, onHandle);
-    return () => dom.removeEventListener(EXERCISE_HANDLE_EVENT, onHandle);
-  }, [editor]);
-
-  const onAddSynonym = useCallback((ctx: BlockContext) => {
-    setPickerOpen(ctx.name);
-  }, []);
-
-  const onJumpLast = useCallback(
-    (ctx: BlockContext) => {
-      if (!editor) return;
-      jumpToLastOccurrence(editor, ctx, synonyms);
-    },
-    [editor, synonyms],
-  );
-
-  const onRepeatLast = useCallback(
-    (ctx: BlockContext) => {
-      if (!editor) return;
-      repeatLastSession(editor, ctx, synonyms, settings.dateFormat);
-    },
-    [editor, synonyms, settings.dateFormat],
-  );
+  const exerciseMenu = useExerciseMenu(editor, synonyms, settings.dateFormat);
 
   if (!editor) return <EditorShell loading />;
 
   return (
     <>
-      <header
-        className="editor-header"
-        style={{
-          background: "var(--color-header-bg)",
-          borderBottom: "1px solid var(--color-border)",
-        }}
-      >
-        <h1>Workout</h1>
+      <EditorHeader>
         <Toolbar
           editor={editor}
           settings={settings}
           ydoc={bundle.ydoc}
           onSearchOpen={() => setSearchOpen(true)}
         />
-      </header>
+      </EditorHeader>
       <EditorContent editor={editor} />
       {conflict && (
         <ConflictModal
@@ -335,30 +125,34 @@ function EditorBody({
         <ExerciseBottomSheet
           editor={editor}
           synonyms={synonyms}
-          open={menuOpen ? { blockFrom: menuOpen.blockFrom } : null}
-          onClose={() => setMenuOpen(null)}
-          onAddSynonym={onAddSynonym}
-          onJumpLast={onJumpLast}
-          onRepeatLast={onRepeatLast}
+          open={
+            exerciseMenu.menuOpen
+              ? { blockFrom: exerciseMenu.menuOpen.blockFrom }
+              : null
+          }
+          onClose={exerciseMenu.closeMenu}
+          onAddSynonym={exerciseMenu.onAddSynonym}
+          onJumpLast={exerciseMenu.onJumpLast}
+          onRepeatLast={exerciseMenu.onRepeatLast}
         />
       ) : (
         <ExerciseMenu
           editor={editor}
           synonyms={synonyms}
-          open={menuOpen}
-          onClose={() => setMenuOpen(null)}
-          onAddSynonym={onAddSynonym}
-          onJumpLast={onJumpLast}
-          onRepeatLast={onRepeatLast}
+          open={exerciseMenu.menuOpen}
+          onClose={exerciseMenu.closeMenu}
+          onAddSynonym={exerciseMenu.onAddSynonym}
+          onJumpLast={exerciseMenu.onJumpLast}
+          onRepeatLast={exerciseMenu.onRepeatLast}
         />
       )}
       <SynonymPickerModal
-        key={pickerOpen ?? "closed"}
-        open={pickerOpen !== null}
-        variant={pickerOpen ?? ""}
+        key={exerciseMenu.pickerOpen ?? "closed"}
+        open={exerciseMenu.pickerOpen !== null}
+        variant={exerciseMenu.pickerOpen ?? ""}
         groups={synonyms}
         ydoc={bundle.ydoc}
-        onClose={() => setPickerOpen(null)}
+        onClose={exerciseMenu.closePicker}
       />
     </>
   );
